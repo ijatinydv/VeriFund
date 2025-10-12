@@ -1,0 +1,22 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Hardhat files
+cache
+artifacts
+typechain
+typechain-types
+
+# Gas reports
+gas-report.txt
+
+# Coverage reports
+coverage
+coverage.json
+
+# Deployment logs
+deployments
+
+node_modules

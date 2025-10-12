@@ -1,0 +1,68 @@
+{
+  "name": "verifund-smart-contracts",
+  "version": "1.0.0",
+  "description": "VeriFund - Blockchain-powered fintech platform smart contracts for regulatory-compliant tokenized investments",
+  "main": "index.js",
+  "author": "VeriFund Team",
+  "license": "MIT",
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "smart-contracts",
+    "fintech",
+    "security-token",
+    "investment",
+    "hardhat",
+    "solidity"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network mainnet",
+    "verify:sepolia": "hardhat verify --network sepolia",
+    "verify:mainnet": "hardhat verify --network mainnet",
+    "node": "hardhat node",
+    "clean": "hardhat clean",
+    "format": "prettier --write 'contracts/**/*.sol' 'scripts/**/*.js' 'test/**/*.js'",
+    "format:check": "prettier --check 'contracts/**/*.sol' 'scripts/**/*.js' 'test/**/*.js'",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "lint:fix": "solhint 'contracts/**/*.sol' --fix",
+    "console": "hardhat console",
+    "accounts": "hardhat accounts",
+    "balance": "hardhat run scripts/check-balance.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.0.0",
+    "chai": "^4.3.0",
+    "dotenv": "^16.0.0",
+    "ethers": "^6.0.0",
+    "hardhat": "^2.22.0",
+    "hardhat-gas-reporter": "^1.0.10",
+    "solidity-coverage": "^0.8.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/verifund-smart-contracts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/verifund-smart-contracts/issues"
+  },
+  "homepage": "https://github.com/yourusername/verifund-smart-contracts#readme",
+  "private": true
+}
