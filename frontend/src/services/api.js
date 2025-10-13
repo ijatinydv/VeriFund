@@ -185,5 +185,12 @@ export const suggestPrice = async (projectData) => {
   return response.data || response;
 };
 
+/**
+ * Get AI-powered price suggestion for a project (alias)
+ * @param {Object} creatorData - Creator/project data for price analysis
+ * @returns {Promise} - Promise resolving to price suggestion with min, suggested, and max prices
+ */
+export const getAISuggestedPrice = suggestPrice;
+
 
 export default api;

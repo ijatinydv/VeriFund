@@ -266,7 +266,7 @@ function CreatorDashboard() {
       {projects && projects.length > 0 ? (
         <Grid container spacing={3}>
           {projects.map((project) => (
-            <Grid item xs={12} sm={6} md={4} key={project.id}>
+            <Grid item xs={12} sm={6} md={4} key={project._id || project.id}>
               <ProjectCard project={project} />
             </Grid>
           ))}

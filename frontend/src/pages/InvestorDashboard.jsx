@@ -74,7 +74,7 @@ function InvestorDashboard() {
             cursor: 'pointer',
             '&:hover': { color: 'secondary.main' },
           }}
-          onClick={() => navigate(`/project/${params.row.projectId}`)}
+          onClick={() => navigate(`/project/${params.row.projectId || params.row.project?._id || params.row.project?.id}`)}
         >
           {params.value}
         </Typography>

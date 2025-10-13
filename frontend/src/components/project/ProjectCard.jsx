@@ -29,7 +29,7 @@ function ProjectCard({ project }) {
 
   // Navigate to project detail page
   const handleViewProject = () => {
-    navigate(`/project/${project.id}`);
+    navigate(`/project/${project._id || project.id}`);
   };
 
   return (

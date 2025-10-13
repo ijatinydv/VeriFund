@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSendTransaction, useWaitForTransaction } from 'wagmi';
+import { useSendTransaction } from 'wagmi';
 import { parseEther } from 'viem';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -21,6 +21,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { recordInvestment } from '../../services/api';
+import { usePublicClient } from 'wagmi';
 
 /**
  * InvestModal Component
@@ -35,8 +36,11 @@ function InvestModal({ open, onClose, project }) {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const [investmentRecorded, setInvestmentRecorded] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
   
   const queryClient = useQueryClient();
+  const publicClient = usePublicClient();
 
   // Wagmi hook for sending transactions
   const {
@@ -47,11 +51,43 @@ function InvestModal({ open, onClose, project }) {
     reset: resetTransaction,
   } = useSendTransaction();
 
-  // Wait for transaction confirmation (wagmi v1 syntax)
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransaction({
-    hash,
-    enabled: !!hash,
-  });
+  // Manual transaction confirmation tracking
+  useEffect(() => {
+    if (!hash || !publicClient) return;
+
+    let cancelled = false;
+    setIsConfirming(true);
+    setIsConfirmed(false);
+
+    const waitForTransaction = async () => {
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+          confirmations: 1,
+        });
+        
+        if (!cancelled && receipt.status === 'success') {
+          setIsConfirmed(true);
+          setIsConfirming(false);
+        } else if (!cancelled) {
+          setIsConfirming(false);
+          toast.error('Transaction failed');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error waiting for transaction:', error);
+          setIsConfirming(false);
+          toast.error('Error confirming transaction');
+        }
+      }
+    };
+
+    waitForTransaction();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hash, publicClient]);
 
   // Mutation to record investment in backend
   const recordInvestmentMutation = useMutation({
@@ -103,15 +139,16 @@ function InvestModal({ open, onClose, project }) {
     }
 
     try {
+      // Convert ETH to Wei
+      const amountInWei = parseEther(amount);
+      
       // Show loading toast
       toast.loading('Preparing transaction...', { id: 'invest-tx' });
       
-      // Send transaction to project's splitter contract (wagmi v1 syntax)
+      // Send transaction to project's splitter contract
       sendTransaction({
-        request: {
-          to: project.splitterContractAddress,
-          value: parseEther(amount),
-        }
+        to: project.splitterContractAddress,
+        value: amountInWei,
       });
       
       // Dismiss loading toast after a delay
@@ -130,6 +167,8 @@ function InvestModal({ open, onClose, project }) {
       setAmount('');
       setError('');
       setInvestmentRecorded(false);
+      setIsConfirming(false);
+      setIsConfirmed(false);
       resetTransaction();
       onClose();
     }

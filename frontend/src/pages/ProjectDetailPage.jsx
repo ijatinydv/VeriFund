@@ -50,8 +50,28 @@ function ProjectDetailPage() {
   } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => fetchProjectById(projectId),
+    enabled: !!projectId, // Only run query if projectId exists
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
+
+  // Handle missing projectId
+  if (!projectId) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 6 }}>
+        <Alert severity="error" sx={{ borderRadius: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Invalid Project
+          </Typography>
+          <Typography variant="body2">
+            No project ID was provided. Please return to browse and select a project.
+          </Typography>
+          <Button variant="outlined" onClick={() => navigate('/browse')} sx={{ mt: 2 }}>
+            Back to Browse
+          </Button>
+        </Alert>
+      </Container>
+    );
+  }
 
   // Calculate funding progress
   const fundingProgress = project?.fundingGoal

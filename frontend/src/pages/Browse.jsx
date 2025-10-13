@@ -142,8 +142,8 @@ function Browse() {
           Showing {filteredProjects.length} {filteredProjects.length === 1 ? 'project' : 'projects'}
         </Typography>
         <Grid container spacing={3}>
-          {filteredProjects.map((project) => (
-            <Grid item xs={12} sm={6} md={4} key={project.id}>
+          {filteredProjects.map((project, index) => (
+            <Grid item xs={12} sm={6} md={4} key={project._id || project.id || index}>
               <ProjectCard project={project} />
             </Grid>
           ))}

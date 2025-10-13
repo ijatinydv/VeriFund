@@ -68,7 +68,7 @@ function CreateProjectPage() {
       
       // Navigate to project page after 2 seconds
       setTimeout(() => {
-        navigate(`/project/${data.id}`);
+        navigate(`/project/${data._id || data.id}`);
       }, 2000);
     },
     onError: (error) => {

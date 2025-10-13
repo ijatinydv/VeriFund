@@ -48,14 +48,19 @@ function useAuth() {
           throw new Error('Wallet is not connected. Please reconnect your wallet.');
         }
 
-        // Check if connector is available (ensures wallet is ready)
+        // CRITICAL: Ensure connector is available before signing
+        // In wagmi v1, the connector must be ready for signature requests
         if (!connector) {
-          console.warn('⚠️ Connector not ready yet, waiting...');
-          // Wait a bit for connector to be ready
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.warn('⚠️ Connector not ready, waiting for initialization...');
+          // Wait for connector to be ready
+          await new Promise(resolve => setTimeout(resolve, 1500));
           
-          // If still not ready after waiting, proceed anyway and let error handling catch issues
-          console.log('🔌 Connector status after wait:', !!connector);
+          // Check again after waiting
+          if (!connector) {
+            throw new Error('Wallet connector not available. Please try reconnecting your wallet.');
+          }
+          
+          console.log('✅ Connector ready after wait');
         }
 
         // Normalize the wallet address to avoid case mismatch issues
@@ -80,18 +85,27 @@ function useAuth() {
         console.log('🔌 Connector available:', !!connector);
 
         // Step 3: Request user to sign message with explicit error handling
+        // In wagmi v1, signMessageAsync expects { message } as parameter
         let signature;
         try {
-          // Ensure we're passing the message as a plain string
+          // CRITICAL FIX: Use the correct wagmi v1 syntax
+          // Pass message as simple object, wagmi v1 will handle the rest
+          console.log('🎯 Calling signMessageAsync...');
           signature = await signMessageAsync({ 
-            message: message,
+            message: message
           });
-          console.log('✅ Signature received:', signature.substring(0, 20) + '...');
+          
+          if (!signature) {
+            throw new Error('No signature returned from wallet');
+          }
+          
+          console.log('✅ Signature received successfully');
+          console.log('📋 Signature preview:', signature.substring(0, 20) + '...');
         } catch (signError) {
           console.error('❌ Signature error details:', signError);
-          console.error('Error name:', signError.name);
-          console.error('Error code:', signError.code);
-          console.error('Error message:', signError.message);
+          console.error('Error name:', signError?.name);
+          console.error('Error code:', signError?.code);
+          console.error('Error message:', signError?.message);
           
           // User rejected the signature request
           if (signError.code === 4001 || 
