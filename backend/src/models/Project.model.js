@@ -147,6 +147,30 @@ const ProjectSchema = new mongoose.Schema(
       trim: true
     },
 
+    // Social and professional profile links
+    links: {
+      github: {
+        type: String,
+        trim: true
+      },
+      linkedin: {
+        type: String,
+        trim: true
+      },
+      dribbble: {
+        type: String,
+        trim: true
+      },
+      portfolio: {
+        type: String,
+        trim: true
+      },
+      twitter: {
+        type: String,
+        trim: true
+      }
+    },
+
     // Investor tracking
     investorCount: {
       type: Number,

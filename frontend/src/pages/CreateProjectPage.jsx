@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Container,
   Paper,
@@ -13,7 +14,9 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  LinearProgress,
 } from '@mui/material';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import Step1_ProjectDetails from '../components/project/create/Step1_ProjectDetails';
 import Step2_LinkProfiles from '../components/project/create/Step2_LinkProfiles';
 import Step3_Review from '../components/project/create/Step3_Review';
@@ -42,6 +45,7 @@ function CreateProjectPage() {
     linkedinUrl: '',
     portfolioUrl: '',
     twitterUrl: '',
+    dribbbleUrl: '',
     
     // Additional fields
     imageUrl: '',
@@ -134,6 +138,9 @@ function CreateProjectPage() {
     }
   };
 
+  // Calculate progress percentage
+  const progress = ((activeStep + 1) / steps.length) * 100;
+
   return (
     <Container maxWidth="md" sx={{ py: 6 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
@@ -155,6 +162,32 @@ function CreateProjectPage() {
         <Typography variant="body2" color="text.secondary" align="center" paragraph>
           Submit your project to receive funding from investors worldwide
         </Typography>
+
+        {/* Visual Profile Building Progress */}
+        <Box sx={{ width: '100%', mb: 4, mt: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <RocketLaunchIcon color="primary" />
+            <Typography variant="h6" fontWeight={600} color="primary">
+              Building Your Potential Profile
+            </Typography>
+          </Box>
+          <LinearProgress 
+            variant="determinate" 
+            value={progress} 
+            sx={{ 
+              height: 8, 
+              borderRadius: 4,
+              backgroundColor: 'rgba(13, 71, 161, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 4,
+                background: 'linear-gradient(90deg, #0D47A1 0%, #00BFA5 100%)',
+              }
+            }}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            Step {activeStep + 1} of {steps.length} • {Math.round(progress)}% Complete
+          </Typography>
+        </Box>
 
         {/* Stepper */}
         <Stepper activeStep={activeStep} sx={{ my: 4 }}>
@@ -189,9 +222,19 @@ function CreateProjectPage() {
           </Alert>
         )}
 
-        {/* Step Content */}
+        {/* Step Content with Animation */}
         <Box sx={{ minHeight: 400 }}>
-          {getStepContent(activeStep)}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeStep}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -10, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {getStepContent(activeStep)}
+            </motion.div>
+          </AnimatePresence>
         </Box>
       </Paper>
     </Container>

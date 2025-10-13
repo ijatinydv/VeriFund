@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -45,6 +45,7 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
 
   const [errors, setErrors] = useState({});
   const [priceSuggestion, setPriceSuggestion] = useState(null);
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
 
   // AI Price Suggestion Mutation
   const priceSuggestionMutation = useMutation({
@@ -59,6 +60,42 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
       toast.error(error.message || 'Failed to get price suggestion');
     },
   });
+
+  // Real-time debounced AI price suggestion
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // Basic validation: only fetch if key fields are filled
+      if (
+        formData.title &&
+        formData.title.length >= 10 &&
+        formData.category &&
+        formData.description.length > 50
+      ) {
+        setIsSuggestionLoading(true);
+
+        suggestPrice({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          fundingDuration: formData.fundingDuration,
+        })
+          .then((response) => {
+            setPriceSuggestion(response);
+          })
+          .catch((err) => {
+            console.error('Failed to get price suggestion', err);
+            // Don't show error toast for automatic suggestions
+          })
+          .finally(() => {
+            setIsSuggestionLoading(false);
+          });
+      }
+    }, 1500); // Debounce for 1.5 seconds
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [formData.title, formData.category, formData.description, formData.fundingDuration]);
 
   // Validate form
   const validate = () => {
@@ -244,43 +281,73 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
             {priceSuggestionMutation.isPending ? 'Analyzing...' : 'Get AI Price Suggestion'}
           </Button>
 
+          {/* Real-time AI Co-pilot Tip - Loading State */}
+          {isSuggestionLoading && (
+            <Box
+              sx={{
+                p: 2,
+                border: '1px dashed',
+                borderColor: 'primary.main',
+                borderRadius: 2,
+                mt: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <CircularProgress size={20} />
+              <Typography variant="body2" color="primary">
+                🤖 AI Co-pilot is analyzing your project...
+              </Typography>
+            </Box>
+          )}
+
           {/* Price Suggestion Display */}
-          {priceSuggestion && (
+          {!isSuggestionLoading && priceSuggestion && (
             <Alert
               severity="info"
               icon={<AutoAwesomeIcon />}
-              sx={{ mt: 2, borderRadius: 2 }}
+              sx={{ 
+                mt: 2, 
+                borderRadius: 2,
+                border: '2px solid',
+                borderColor: 'primary.main',
+                background: 'linear-gradient(135deg, rgba(13, 71, 161, 0.05) 0%, rgba(0, 191, 165, 0.05) 100%)',
+              }}
             >
               <Typography variant="body2" fontWeight={600} gutterBottom>
-                AI-Powered Funding Goal Suggestion
+                🚀 AI Co-pilot Pricing Advice
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Based on your project details, we recommend a funding range:
+                For a project like this, a typical funding goal is between:
               </Typography>
-              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ mb: 1 }} flexWrap="wrap">
                 <Chip
-                  label={`Min: ₹${priceSuggestion.minPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                  label={`₹${priceSuggestion.minPrice?.toLocaleString('en-IN') || 'N/A'}`}
                   color="secondary"
                   size="small"
                   onClick={() => applySuggestedPrice(priceSuggestion.minPrice)}
                   sx={{ cursor: 'pointer', fontWeight: 600 }}
                 />
+                <Typography variant="body2" sx={{ alignSelf: 'center' }}>
+                  to
+                </Typography>
                 <Chip
-                  label={`Recommended: ₹${priceSuggestion.suggestedPrice?.toLocaleString('en-IN') || 'N/A'}`}
-                  color="primary"
-                  size="small"
-                  onClick={() => applySuggestedPrice(priceSuggestion.suggestedPrice)}
-                  sx={{ cursor: 'pointer', fontWeight: 600 }}
-                />
-                <Chip
-                  label={`Max: ₹${priceSuggestion.maxPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                  label={`₹${priceSuggestion.maxPrice?.toLocaleString('en-IN') || 'N/A'}`}
                   color="secondary"
                   size="small"
                   onClick={() => applySuggestedPrice(priceSuggestion.maxPrice)}
                   sx={{ cursor: 'pointer', fontWeight: 600 }}
                 />
               </Stack>
-              <Typography variant="caption" color="text.secondary">
+              <Chip
+                label={`Recommended: ₹${priceSuggestion.suggestedPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                color="primary"
+                size="medium"
+                onClick={() => applySuggestedPrice(priceSuggestion.suggestedPrice)}
+                sx={{ cursor: 'pointer', fontWeight: 600, mb: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" display="block">
                 💡 Click on any amount to apply it to your funding goal
               </Typography>
             </Alert>

@@ -24,8 +24,23 @@ class ProjectController {
         });
       }
 
+      // Extract and format social/professional links
+      const links = {
+        github: projectData.githubUrl || '',
+        linkedin: projectData.linkedinUrl || '',
+        portfolio: projectData.portfolioUrl || '',
+        twitter: projectData.twitterUrl || '',
+        dribbble: projectData.dribbbleUrl || ''
+      };
+
+      // Add links to project data
+      const enrichedProjectData = {
+        ...projectData,
+        links
+      };
+
       // Create project
-      const project = await projectService.createProject(projectData, creatorId);
+      const project = await projectService.createProject(enrichedProjectData, creatorId);
 
       return res.status(201).json({
         success: true,

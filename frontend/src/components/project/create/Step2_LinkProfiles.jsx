@@ -6,7 +6,7 @@ import {
   Typography,
   Stack,
   InputAdornment,
-  Chip,
+  Alert,
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -14,6 +14,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LanguageIcon from '@mui/icons-material/Language';
+import BrushIcon from '@mui/icons-material/Brush';
 
 /**
  * Step 2: Link External Profiles
@@ -25,6 +26,7 @@ function Step2_LinkProfiles({ data, onUpdate, onNext, onBack }) {
     linkedinUrl: data.linkedinUrl || '',
     portfolioUrl: data.portfolioUrl || '',
     twitterUrl: data.twitterUrl || '',
+    dribbbleUrl: data.dribbbleUrl || '',
   });
 
   // Handle input change
@@ -42,14 +44,38 @@ function Step2_LinkProfiles({ data, onUpdate, onNext, onBack }) {
     onNext();
   };
 
+  // Calculate completion percentage
+  const filledFields = Object.values(formData).filter(value => value.trim() !== '').length;
+  const totalFields = Object.keys(formData).length;
+  const completionPercent = Math.round((filledFields / totalFields) * 100);
+
   return (
     <Box>
       <Typography variant="h6" fontWeight={600} gutterBottom>
         Link Your Profiles
       </Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
-        Connect your professional profiles to build credibility with investors (Optional)
+        Connect your professional profiles to build credibility with investors
       </Typography>
+
+      {/* Gamification - Profile Strength Indicator */}
+      {filledFields > 0 && (
+        <Alert 
+          severity="success" 
+          sx={{ mb: 3, borderRadius: 2 }}
+        >
+          <Typography variant="body2" fontWeight={600}>
+            🎯 Profile Strength: {completionPercent}%
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {filledFields} of {totalFields} profiles linked • 
+            {completionPercent === 100 
+              ? ' Amazing! Your profile is complete!' 
+              : ` Add ${totalFields - filledFields} more to maximize your credibility`
+            }
+          </Typography>
+        </Alert>
+      )}
 
       <Stack spacing={3}>
         {/* GitHub */}
@@ -122,6 +148,24 @@ function Step2_LinkProfiles({ data, onUpdate, onNext, onBack }) {
             ),
           }}
           helperText="Social media presence and community engagement"
+        />
+
+        {/* Dribbble */}
+        <TextField
+          fullWidth
+          label="Dribbble Profile"
+          name="dribbbleUrl"
+          value={formData.dribbbleUrl}
+          onChange={handleChange}
+          placeholder="https://dribbble.com/yourusername"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <BrushIcon />
+              </InputAdornment>
+            ),
+          }}
+          helperText="Perfect for designers and creative professionals"
         />
 
         {/* Navigation Buttons */}
