@@ -192,5 +192,24 @@ export const suggestPrice = async (projectData) => {
  */
 export const getAISuggestedPrice = suggestPrice;
 
+/**
+ * Get UPI QR code data for project payout
+ * @param {string} projectId - The project ID
+ * @returns {Promise} - Promise resolving to UPI string and payout details
+ */
+export const getUpiQrCode = async (projectId) => {
+  const response = await api.get(`/payout/upi-qr/${projectId}`);
+  return response.data || response;
+};
+
+/**
+ * Get payout summary for a project
+ * @param {string} projectId - The project ID
+ * @returns {Promise} - Promise resolving to payout summary
+ */
+export const getPayoutSummary = async (projectId) => {
+  const response = await api.get(`/payout/summary/${projectId}`);
+  return response.data || response;
+};
 
 export default api;

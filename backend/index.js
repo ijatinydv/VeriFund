@@ -33,6 +33,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/api/projects', require('./src/routes/project.routes'));
 app.use('/api/investments', require('./src/routes/investment.routes'));
+app.use('/api/payout', require('./src/routes/payout.routes'));
 
 // 404 Handler for undefined routes
 app.use('*', (req, res) => {

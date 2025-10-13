@@ -12,6 +12,11 @@ import {
   Alert,
   Skeleton,
   Stack,
+  Menu,
+  MenuItem,
+  ListItemText,
+  ListItemIcon,
+  Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
@@ -19,10 +24,12 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import QrCodeIcon from '@mui/icons-material/QrCode';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ProjectCard from '../components/project/ProjectCard';
 import UpiCashOutModal from '../components/ui/UpiCashOutModal';
 import PotentialScoreDisplay from '../components/ui/PotentialScoreDisplay';
-import { fetchMyProjects } from '../services/api';
+import { fetchMyProjects, getUpiQrCode } from '../services/api';
 import useAuth from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -36,6 +43,11 @@ function CreatorDashboard() {
   const { user } = useAuth();
   const [upiModalOpen, setUpiModalOpen] = useState(false);
   const [potentialScore, setPotentialScore] = useState(75);
+  const [upiString, setUpiString] = useState(null);
+  const [payoutData, setPayoutData] = useState(null);
+  const [isLoadingUpi, setIsLoadingUpi] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const projectMenuOpen = Boolean(anchorEl);
 
   // Fetch creator's projects with polling enabled for real-time score updates
   const {
@@ -74,6 +86,58 @@ function CreatorDashboard() {
       }
     }
   }, [projects, potentialScore]);
+
+  // Handler for opening project selection menu
+  const handleOpenProjectMenu = (event) => {
+    if (!projects || projects.length === 0) {
+      toast.error('No projects available for cash-out');
+      return;
+    }
+    setAnchorEl(event.currentTarget);
+  };
+
+  // Handler for closing project menu
+  const handleCloseProjectMenu = () => {
+    setAnchorEl(null);
+  };
+
+  // Handler for UPI cash out for a specific project
+  const handleUpiCashOut = async (projectId) => {
+    handleCloseProjectMenu();
+    setIsLoadingUpi(true);
+    setUpiModalOpen(true);
+
+    try {
+      const response = await getUpiQrCode(projectId);
+      console.log('🔍 UPI Response:', response);
+
+      if (response && response.upiString) {
+        setUpiString(response.upiString);
+        setPayoutData({
+          payoutAmount: response.payoutAmount,
+          projectTitle: response.projectTitle,
+          creatorName: response.creatorName,
+          recipientUpi: response.recipientUpi,
+        });
+        toast.success('UPI QR Code generated successfully!');
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (err) {
+      console.error('❌ Error generating UPI QR:', err);
+      toast.error(err.message || 'Failed to generate UPI QR code. Please try again.');
+      setUpiModalOpen(false);
+    } finally {
+      setIsLoadingUpi(false);
+    }
+  };
+
+  // Handler for closing UPI modal
+  const handleCloseUpiModal = () => {
+    setUpiModalOpen(false);
+    setUpiString(null);
+    setPayoutData(null);
+  };
 
   // Calculate statistics
   const stats = {
@@ -149,11 +213,79 @@ function CreatorDashboard() {
             color="secondary"
             size="large"
             startIcon={<QrCodeIcon />}
-            onClick={() => setUpiModalOpen(true)}
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleOpenProjectMenu}
+            disabled={!projects || projects.length === 0}
             sx={{ fontWeight: 600 }}
           >
             Cash Out to UPI
           </Button>
+          <Menu
+            anchorEl={anchorEl}
+            open={projectMenuOpen}
+            onClose={handleCloseProjectMenu}
+            PaperProps={{
+              sx: {
+                minWidth: 320,
+                maxHeight: 400,
+                mt: 1,
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                Select a Project to Cash Out
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Choose which project's earnings to withdraw
+              </Typography>
+            </Box>
+            {projects && projects.map((project) => {
+              const payoutAmount = (project.currentFundingInr * 0.15).toFixed(2);
+              return (
+                <MenuItem
+                  key={project._id}
+                  onClick={() => handleUpiCashOut(project._id)}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 191, 165, 0.08)',
+                    },
+                  }}
+                >
+                  <ListItemIcon>
+                    <AccountBalanceWalletIcon color="secondary" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 160 }}>
+                          {project.title}
+                        </Typography>
+                        {project.status === 'Live' && (
+                          <Chip
+                            icon={<CheckCircleIcon />}
+                            label="Live"
+                            size="small"
+                            color="success"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Typography variant="caption" color="secondary.main" fontWeight={600}>
+                        ₹{payoutAmount} available
+                      </Typography>
+                    }
+                  />
+                </MenuItem>
+              );
+            })}
+          </Menu>
           <Button
             variant="contained"
             color="secondary"
@@ -384,7 +516,10 @@ function CreatorDashboard() {
       {/* UPI Cash Out Modal */}
       <UpiCashOutModal
         open={upiModalOpen}
-        onClose={() => setUpiModalOpen(false)}
+        onClose={handleCloseUpiModal}
+        upiString={upiString}
+        payoutData={payoutData}
+        isLoading={isLoadingUpi}
       />
     </Container>
   );
