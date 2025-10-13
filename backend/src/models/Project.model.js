@@ -146,6 +146,12 @@ const ProjectSchema = new mongoose.Schema(
       min: 0
     },
 
+    // Crowd investment tracking (before contract deployment)
+    investments: [{
+      investor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      amount: { type: Number, required: true }
+    }],
+
     // Additional flags
     isFeatured: {
       type: Boolean,

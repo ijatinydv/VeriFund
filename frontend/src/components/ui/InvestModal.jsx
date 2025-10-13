@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { useState, useEffect } from 'react';
+import { useSendTransaction, useWaitForTransaction } from 'wagmi';
 import { parseEther } from 'viem';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   Dialog,
   DialogTitle,
@@ -18,6 +20,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import { recordInvestment } from '../../services/api';
 
 /**
  * InvestModal Component
@@ -31,6 +34,9 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 function InvestModal({ open, onClose, project }) {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
+  const [investmentRecorded, setInvestmentRecorded] = useState(false);
+  
+  const queryClient = useQueryClient();
 
   // Wagmi hook for sending transactions
   const {
@@ -38,12 +44,46 @@ function InvestModal({ open, onClose, project }) {
     isPending,
     error: txError,
     sendTransaction,
+    reset: resetTransaction,
   } = useSendTransaction();
 
-  // Wait for transaction confirmation
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+  // Wait for transaction confirmation (wagmi v1 syntax)
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransaction({
     hash,
+    enabled: !!hash,
   });
+
+  // Mutation to record investment in backend
+  const recordInvestmentMutation = useMutation({
+    mutationFn: (investmentData) => recordInvestment(investmentData),
+    onSuccess: () => {
+      setInvestmentRecorded(true);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['project', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['myInvestments'] });
+      
+      toast.success('🎉 Investment recorded successfully!');
+    },
+    onError: (error) => {
+      console.error('Failed to record investment:', error);
+      toast.error('Transaction succeeded but failed to record investment. Please contact support.');
+    },
+  });
+
+  // Auto-record investment when transaction is confirmed
+  useEffect(() => {
+    if (isConfirmed && hash && !investmentRecorded && !recordInvestmentMutation.isPending) {
+      console.log('Transaction confirmed, recording investment...');
+      
+      recordInvestmentMutation.mutate({
+        projectId: project.id,
+        amount: parseFloat(amount),
+        transactionHash: hash,
+        currency: 'ETH',
+      });
+    }
+  }, [isConfirmed, hash, investmentRecorded, project.id, amount, recordInvestmentMutation]);
 
   // Validate and handle investment
   const handleInvest = () => {
@@ -52,31 +92,45 @@ function InvestModal({ open, onClose, project }) {
     // Validation
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
     if (!project.splitterContractAddress) {
       setError('Project contract address not found');
+      toast.error('Project contract address not found');
       return;
     }
 
     try {
-      // Send transaction to project's splitter contract
+      // Show loading toast
+      toast.loading('Preparing transaction...', { id: 'invest-tx' });
+      
+      // Send transaction to project's splitter contract (wagmi v1 syntax)
       sendTransaction({
-        to: project.splitterContractAddress,
-        value: parseEther(amount),
+        request: {
+          to: project.splitterContractAddress,
+          value: parseEther(amount),
+        }
       });
+      
+      // Dismiss loading toast after a delay
+      setTimeout(() => toast.dismiss('invest-tx'), 1000);
     } catch (err) {
       console.error('Transaction error:', err);
       setError(err.message || 'Failed to send transaction');
+      toast.dismiss('invest-tx');
+      toast.error(err.message || 'Failed to send transaction');
     }
   };
 
   // Handle modal close
   const handleClose = () => {
-    if (!isPending && !isConfirming) {
+    if (!isPending && !isConfirming && !recordInvestmentMutation.isPending) {
       setAmount('');
       setError('');
+      setInvestmentRecorded(false);
+      resetTransaction();
       onClose();
     }
   };
@@ -111,17 +165,20 @@ function InvestModal({ open, onClose, project }) {
 
       <DialogContent>
         {/* Success State */}
-        {isConfirmed && (
+        {isConfirmed && investmentRecorded && (
           <Alert
             severity="success"
             icon={<CheckCircleIcon />}
             sx={{ mb: 3, borderRadius: 2 }}
           >
             <Typography variant="body1" fontWeight={600} gutterBottom>
-              Investment Successful!
+              Investment Successful! 🎉
             </Typography>
             <Typography variant="body2" gutterBottom>
-              Your transaction has been confirmed on the blockchain.
+              Your transaction has been confirmed and recorded on the blockchain.
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Amount: <strong>{amount} ETH</strong>
             </Typography>
             <Link
               href={getEtherscanLink()}
@@ -131,6 +188,23 @@ function InvestModal({ open, onClose, project }) {
             >
               View on Etherscan →
             </Link>
+          </Alert>
+        )}
+
+        {/* Recording Investment State */}
+        {isConfirmed && !investmentRecorded && recordInvestmentMutation.isPending && (
+          <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CircularProgress size={20} />
+              <div>
+                <Typography variant="body2" fontWeight={600}>
+                  Recording your investment...
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Please wait while we save your investment to the database
+                </Typography>
+              </div>
+            </Box>
           </Alert>
         )}
 
@@ -230,8 +304,11 @@ function InvestModal({ open, onClose, project }) {
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={handleClose} disabled={isPending || isConfirming}>
-          {isConfirmed ? 'Close' : 'Cancel'}
+        <Button 
+          onClick={handleClose} 
+          disabled={isPending || isConfirming || recordInvestmentMutation.isPending}
+        >
+          {isConfirmed && investmentRecorded ? 'Close' : 'Cancel'}
         </Button>
         {!isConfirmed && (
           <Button

@@ -43,6 +43,74 @@ class ProjectController {
   }
 
   /**
+   * POST /api/projects/suggest-price
+   * Get AI-powered funding goal suggestion
+   * @protected - Requires authentication
+   */
+  async suggestPrice(req, res) {
+    try {
+      const { title, description, category, fundingDuration } = req.body;
+
+      // Basic validation
+      if (!title || !description || !category) {
+        return res.status(400).json({
+          success: false,
+          message: 'Title, description, and category are required'
+        });
+      }
+
+      // Simple AI-powered price suggestion algorithm
+      // In production, this would call the AI service for more sophisticated analysis
+      const categoryBasePrice = {
+        'Technology': 500000,
+        'Finance': 750000,
+        'Healthcare': 600000,
+        'Education': 400000,
+        'E-commerce': 550000,
+        'Social Impact': 350000,
+        'Entertainment': 450000,
+        'Gaming': 500000,
+        'Other': 300000,
+      };
+
+      const basePrice = categoryBasePrice[category] || 300000;
+      
+      // Adjust based on description length (complexity indicator)
+      const descriptionFactor = Math.min(description.length / 500, 2);
+      
+      // Adjust based on funding duration
+      const durationFactor = fundingDuration ? Math.min(fundingDuration / 30, 2) : 1;
+      
+      const suggestedPrice = Math.round(basePrice * descriptionFactor * durationFactor);
+      const minPrice = Math.round(suggestedPrice * 0.6);
+      const maxPrice = Math.round(suggestedPrice * 1.4);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          suggestedPrice,
+          minPrice,
+          maxPrice,
+          category,
+          confidence: 0.85,
+          factors: {
+            categoryBase: basePrice,
+            descriptionComplexity: descriptionFactor,
+            durationMultiplier: durationFactor,
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Suggest price controller error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to generate price suggestion'
+      });
+    }
+  }
+
+  /**
    * GET /api/projects
    * Get all projects with optional filters
    * @public

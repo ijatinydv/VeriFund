@@ -3,7 +3,7 @@ generate_data.py
 
 This script generates synthetic creator data for the VeriFund project.
 It creates 10,000 rows of realistic creator performance data with logical
-correlations between features and a calculated project success score.
+correlations between features, a calculated project success score, and a project price.
 """
 
 import pandas as pd
@@ -113,7 +113,29 @@ noise = np.random.normal(0, 3, NUM_ROWS)  # Mean=0, StdDev=3
 project_success_score = np.clip(project_success_score + noise, 0, 100)
 
 # ============================================================================
-# STEP 4: Create DataFrame and save to CSV
+# STEP 4: Calculate project_price_inr (Pricing Co-Pilot Target)
+# ============================================================================
+
+print("\nCalculating project prices based on creator metrics...")
+
+# Calculate base price from key metrics (already normalized 0-1)
+# Weight experience, portfolio, and rating for pricing
+price_factor = (norm_projects * 0.4) + (norm_portfolio * 0.3) + (norm_rating * 0.3)
+
+# Scale to a realistic INR range (50,000 to 5,00,000)
+base_price = 50000 + (price_factor * 450000)
+
+# Add realistic noise to simulate market variance
+project_price_inr = np.clip(
+    base_price + np.random.normal(0, 15000, NUM_ROWS),
+    50000,
+    500000
+).astype(int)
+
+print(f"✓ Price range generated: ₹{project_price_inr.min():,} to ₹{project_price_inr.max():,}")
+
+# ============================================================================
+# STEP 5: Create DataFrame and save to CSV
 # ============================================================================
 
 # Create the DataFrame with all columns
@@ -126,7 +148,8 @@ df = pd.DataFrame({
     'rating_trajectory': np.round(rating_trajectory, 2),
     'dispute_rate': np.round(dispute_rate, 3),
     'project_category': project_category,
-    'project_success_score': np.round(project_success_score, 2)
+    'project_success_score': np.round(project_success_score, 2),
+    'project_price_inr': project_price_inr
 })
 
 # Save to CSV
@@ -137,7 +160,7 @@ print(f"\n✓ Successfully generated {NUM_ROWS} rows of data")
 print(f"✓ Saved to: {output_file}")
 
 # ============================================================================
-# STEP 5: Display summary statistics and correlations
+# STEP 6: Display summary statistics and correlations
 # ============================================================================
 
 print("\n" + "="*70)
@@ -152,6 +175,8 @@ print(f"projects_completed vs tenure_months: {df['projects_completed'].corr(df['
 print(f"avg_client_rating vs on_time_delivery_percent: {df['avg_client_rating'].corr(df['on_time_delivery_percent']):.3f}")
 print(f"dispute_rate vs avg_client_rating: {df['dispute_rate'].corr(df['avg_client_rating']):.3f}")
 print(f"project_success_score vs avg_client_rating: {df['project_success_score'].corr(df['avg_client_rating']):.3f}")
+print(f"project_price_inr vs projects_completed: {df['project_price_inr'].corr(df['projects_completed']):.3f}")
+print(f"project_price_inr vs avg_client_rating: {df['project_price_inr'].corr(df['avg_client_rating']):.3f}")
 
 print("\n" + "="*70)
 print("SAMPLE DATA (first 5 rows)")

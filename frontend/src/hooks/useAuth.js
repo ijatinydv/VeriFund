@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSignMessage } from 'wagmi';
+import { useSignMessage, useAccount } from 'wagmi';
 import useAuthStore from '../store/authStore';
 import { getNonce, loginWithWallet, logoutUser, updateUserRole } from '../services/api';
 
@@ -28,7 +28,8 @@ function useAuth() {
     updateRole: updateRoleInStore,
   } = useAuthStore();
 
-  // Wagmi hook for signing messages
+  // Wagmi hooks
+  const { isConnected, connector } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
   /**
@@ -41,6 +42,21 @@ function useAuth() {
       try {
         setLoading(true);
         clearError();
+
+        // Check if wallet is still connected
+        if (!isConnected) {
+          throw new Error('Wallet is not connected. Please reconnect your wallet.');
+        }
+
+        // Check if connector is available (ensures wallet is ready)
+        if (!connector) {
+          console.warn('⚠️ Connector not ready yet, waiting...');
+          // Wait a bit for connector to be ready
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // If still not ready after waiting, proceed anyway and let error handling catch issues
+          console.log('🔌 Connector status after wait:', !!connector);
+        }
 
         // Normalize the wallet address to avoid case mismatch issues
         const normalizedAddress = walletAddress.toLowerCase();
@@ -61,13 +77,42 @@ function useAuth() {
 
         console.log('✍️ Requesting signature from wallet...');
         console.log('📝 Message to sign:', message);
+        console.log('🔌 Connector available:', !!connector);
 
-        // Step 3: Request user to sign message
-        const signature = await signMessageAsync({
-          message,
-        });
+        // Step 3: Request user to sign message with explicit error handling
+        let signature;
+        try {
+          // Ensure we're passing the message as a plain string
+          signature = await signMessageAsync({ 
+            message: message,
+          });
+          console.log('✅ Signature received:', signature.substring(0, 20) + '...');
+        } catch (signError) {
+          console.error('❌ Signature error details:', signError);
+          console.error('Error name:', signError.name);
+          console.error('Error code:', signError.code);
+          console.error('Error message:', signError.message);
+          
+          // User rejected the signature request
+          if (signError.code === 4001 || 
+              signError.code === 'ACTION_REJECTED' ||
+              signError.message?.includes('User rejected') ||
+              signError.message?.includes('User denied')) {
+            throw new Error('Signature request was rejected. Please approve the signature to authenticate.');
+          }
+          
+          // Wallet not connected or other connector errors
+          if (signError.message?.includes('Connector') || 
+              signError.message?.includes('not connected') ||
+              signError.name === 'ConnectorNotConnectedError') {
+            throw new Error('Wallet connection lost. Please reconnect and try again.');
+          }
+          
+          // Re-throw other signature errors with more context
+          throw new Error(`Failed to sign message: ${signError.message || 'Unknown error'}`);
+        }
 
-        console.log('✅ Signature received, verifying with backend...');
+        console.log('✅ Signature obtained, verifying with backend...');
 
         // Step 4: Send signature to backend for verification (use normalized address)
         const response = await loginWithWallet({
@@ -98,13 +143,21 @@ function useAuth() {
         console.error('❌ Authentication error:', err);
         
         // Handle user rejection
-        if (err.message?.includes('User rejected') || err.code === 4001 || err.name === 'UserRejectedRequestError') {
+        if (err.message?.includes('User rejected') || 
+            err.message?.includes('rejected') ||
+            err.message?.includes('denied') ||
+            err.code === 4001 || 
+            err.code === 'ACTION_REJECTED' ||
+            err.name === 'UserRejectedRequestError') {
           setError('Authentication cancelled by user');
-          return { success: false, error: 'Authentication cancelled' };
+          return { success: false, error: 'Authentication cancelled by user' };
         }
 
         // Handle connector not connected error
-        if (err.name === 'ConnectorNotConnectedError') {
+        if (err.name === 'ConnectorNotConnectedError' || 
+            err.message?.includes('not connected') ||
+            err.message?.includes('not fully established') ||
+            err.message?.includes('Connector')) {
           setError('Wallet disconnected. Please reconnect and try again.');
           return { success: false, error: 'Wallet disconnected. Please reconnect and try again.' };
         }
@@ -117,7 +170,7 @@ function useAuth() {
         setLoading(false);
       }
     },
-    [signMessageAsync, setUser, setLoading, setError, clearError]
+    [signMessageAsync, setUser, setLoading, setError, clearError, isConnected, connector]
   );
 
   /**

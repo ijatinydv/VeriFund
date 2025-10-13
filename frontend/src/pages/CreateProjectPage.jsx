@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   Container,
   Paper,
@@ -56,17 +57,23 @@ function CreateProjectPage() {
     onSuccess: (data) => {
       // Invalidate and refetch projects list
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['myProjects'] });
       
-      // Show success and redirect
+      // Show success toast
+      toast.success('🎉 Project created successfully!', {
+        duration: 5000,
+      });
+      
       console.log('Project created successfully:', data);
       
-      // Navigate to project page or dashboard after 2 seconds
+      // Navigate to project page after 2 seconds
       setTimeout(() => {
         navigate(`/project/${data.id}`);
       }, 2000);
     },
     onError: (error) => {
       console.error('Failed to create project:', error);
+      toast.error(error.message || 'Failed to create project. Please try again.');
     },
   });
 

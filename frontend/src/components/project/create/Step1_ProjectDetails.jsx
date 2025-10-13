@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   Box,
   TextField,
@@ -8,8 +10,12 @@ import {
   InputAdornment,
   Chip,
   Stack,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { suggestPrice } from '../../../services/api';
 
 const categories = [
   'Technology',
@@ -38,6 +44,21 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
   });
 
   const [errors, setErrors] = useState({});
+  const [priceSuggestion, setPriceSuggestion] = useState(null);
+
+  // AI Price Suggestion Mutation
+  const priceSuggestionMutation = useMutation({
+    mutationFn: (projectData) => suggestPrice(projectData),
+    onSuccess: (data) => {
+      setPriceSuggestion(data);
+      toast.success('AI price suggestion generated!', {
+        icon: '💡',
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to get price suggestion');
+    },
+  });
 
   // Validate form
   const validate = () => {
@@ -105,6 +126,30 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
     }
   };
 
+  // Handle AI Price Suggestion
+  const handleGetPriceSuggestion = () => {
+    if (!formData.title || !formData.description || !formData.category) {
+      toast.error('Please fill in title, description, and category first');
+      return;
+    }
+
+    priceSuggestionMutation.mutate({
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      fundingDuration: formData.fundingDuration,
+    });
+  };
+
+  // Apply suggested price
+  const applySuggestedPrice = (price) => {
+    setFormData((prev) => ({
+      ...prev,
+      fundingGoalInr: price,
+    }));
+    toast.success('Suggested price applied!');
+  };
+
   return (
     <Box>
       <Typography variant="h6" fontWeight={600} gutterBottom>
@@ -164,20 +209,83 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
         </TextField>
 
         {/* Funding Goal */}
-        <TextField
-          fullWidth
-          type="number"
-          label="Funding Goal"
-          name="fundingGoalInr"
-          value={formData.fundingGoalInr}
-          onChange={handleChange}
-          error={!!errors.fundingGoalInr}
-          helperText={errors.fundingGoalInr || 'Amount you need to raise (in INR)'}
-          InputProps={{
-            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-          }}
-          placeholder="100000"
-        />
+        <Box>
+          <TextField
+            fullWidth
+            type="number"
+            label="Funding Goal"
+            name="fundingGoalInr"
+            value={formData.fundingGoalInr}
+            onChange={handleChange}
+            error={!!errors.fundingGoalInr}
+            helperText={errors.fundingGoalInr || 'Amount you need to raise (in INR)'}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+            }}
+            placeholder="100000"
+          />
+          
+          {/* AI Price Suggestion Button */}
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={
+              priceSuggestionMutation.isPending ? (
+                <CircularProgress size={20} />
+              ) : (
+                <AutoAwesomeIcon />
+              )
+            }
+            onClick={handleGetPriceSuggestion}
+            disabled={priceSuggestionMutation.isPending || !formData.title || !formData.description || !formData.category}
+            sx={{ mt: 1, fontWeight: 600 }}
+            size="small"
+          >
+            {priceSuggestionMutation.isPending ? 'Analyzing...' : 'Get AI Price Suggestion'}
+          </Button>
+
+          {/* Price Suggestion Display */}
+          {priceSuggestion && (
+            <Alert
+              severity="info"
+              icon={<AutoAwesomeIcon />}
+              sx={{ mt: 2, borderRadius: 2 }}
+            >
+              <Typography variant="body2" fontWeight={600} gutterBottom>
+                AI-Powered Funding Goal Suggestion
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Based on your project details, we recommend a funding range:
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                <Chip
+                  label={`Min: ₹${priceSuggestion.minPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                  color="secondary"
+                  size="small"
+                  onClick={() => applySuggestedPrice(priceSuggestion.minPrice)}
+                  sx={{ cursor: 'pointer', fontWeight: 600 }}
+                />
+                <Chip
+                  label={`Recommended: ₹${priceSuggestion.suggestedPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                  color="primary"
+                  size="small"
+                  onClick={() => applySuggestedPrice(priceSuggestion.suggestedPrice)}
+                  sx={{ cursor: 'pointer', fontWeight: 600 }}
+                />
+                <Chip
+                  label={`Max: ₹${priceSuggestion.maxPrice?.toLocaleString('en-IN') || 'N/A'}`}
+                  color="secondary"
+                  size="small"
+                  onClick={() => applySuggestedPrice(priceSuggestion.maxPrice)}
+                  sx={{ cursor: 'pointer', fontWeight: 600 }}
+                />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                💡 Click on any amount to apply it to your funding goal
+              </Typography>
+            </Alert>
+          )}
+        </Box>
 
         {/* Funding Duration */}
         <TextField

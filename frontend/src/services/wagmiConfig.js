@@ -1,6 +1,8 @@
-import { createConfig, http } from 'wagmi';
+import { createConfig } from 'wagmi';
 import { mainnet, sepolia } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { InjectedConnector } from '@wagmi/connectors/injected';
+import { WalletConnectConnector } from '@wagmi/connectors/walletConnect';
+import { http } from 'viem';
 
 // Optional: Get your WalletConnect project ID from https://cloud.walletconnect.com
 // To enable WalletConnect, sign up at https://cloud.walletconnect.com and replace with your project ID
@@ -13,9 +15,14 @@ const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 
 export const wagmiConfig = createConfig({
   chains: [mainnet, sepolia],
   connectors: [
-    injected(), // MetaMask, Coinbase Wallet, etc.
+    new InjectedConnector({ chains: [mainnet, sepolia] }), // MetaMask, Coinbase Wallet, etc.
     // WalletConnect is only added if a valid project ID is provided
-    ...(walletConnectProjectId ? [walletConnect({ projectId: walletConnectProjectId })] : []),
+    ...(walletConnectProjectId 
+      ? [new WalletConnectConnector({ 
+          chains: [mainnet, sepolia],
+          options: { projectId: walletConnectProjectId }
+        })] 
+      : []),
   ],
   transports: {
     [mainnet.id]: http(),

@@ -195,6 +195,42 @@ class IntegrationController {
   }
 
   /**
+   * POST /api/integrations/webhooks/github
+   * Handle GitHub webhook for live re-scoring
+   * @public - GitHub webhook endpoint
+   */
+  async handleGithubWebhook(req, res) {
+    try {
+      const payload = req.body;
+
+      console.log('=== GitHub Webhook Received ===');
+      console.log('Event:', req.headers['x-github-event']);
+      console.log('Delivery:', req.headers['x-github-delivery']);
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+
+      // Trigger re-scoring from webhook
+      const result = await scoringService.triggerRescoreFromWebhook(payload);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Webhook processed successfully',
+        data: result
+      });
+
+    } catch (error) {
+      console.error('GitHub webhook error:', error);
+      
+      // Return 200 even on error to prevent GitHub from retrying
+      // Log the error but acknowledge receipt
+      return res.status(200).json({
+        success: false,
+        message: error.message || 'Webhook processing failed',
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * GET /api/integrations/health
    * Check health of integration services
    * @public

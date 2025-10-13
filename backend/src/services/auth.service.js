@@ -55,11 +55,14 @@ class AuthService {
         await user.save();
       }
 
+      // Generate simple, static message for signing
+      const message = `Please sign this one-time nonce to authenticate with VeriFund: ${nonce}`;
+
       return {
         nonce,
         isNewUser,
         expiresAt: nonceExpiry,
-        message: `Sign this message to authenticate with VeriFund:\n\nNonce: ${nonce}\nTimestamp: ${nonceExpiry.toISOString()}`
+        message: message
       };
 
     } catch (error) {
@@ -108,8 +111,8 @@ class AuthService {
         throw new Error('Nonce has expired. Please request a new nonce.');
       }
 
-      // Reconstruct the message that was signed
-      const message = `Sign this message to authenticate with VeriFund:\n\nNonce: ${user.nonce}\nTimestamp: ${user.nonceExpiry.toISOString()}`;
+      // Reconstruct the exact same message that was signed
+      const message = `Please sign this one-time nonce to authenticate with VeriFund: ${user.nonce}`;
 
       // Verify the signature using ethers.js
       let recoveredAddress;

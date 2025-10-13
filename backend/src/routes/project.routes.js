@@ -21,6 +21,13 @@ router.post(
 );
 
 /**
+ * @route   POST /api/projects/suggest-price
+ * @desc    Get AI-powered funding goal suggestion
+ * @access  Protected
+ */
+router.post('/suggest-price', authenticate, projectController.suggestPrice);
+
+/**
  * @route   GET /api/projects
  * @desc    Get all projects with optional filters
  * @access  Public

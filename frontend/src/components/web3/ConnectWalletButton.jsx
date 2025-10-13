@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import toast from 'react-hot-toast';
 import {
   Button,
   Menu,
@@ -67,9 +68,9 @@ function ConnectWalletButton() {
         console.log('🔐 Wallet connected, initiating authentication...');
         console.log('📍 Address:', address);
         
-        // Add a longer delay to ensure the connector is fully ready
-        // This prevents "Connector not connected" errors
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Add a delay to ensure the connector is fully ready
+        // This prevents "Connector not connected" errors and ensures MetaMask is ready
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Double check that wallet is still connected after delay
         if (!isConnected || !address) {
@@ -89,11 +90,17 @@ function ConnectWalletButton() {
           
           if (result.success) {
             console.log('✅ Authentication successful!', result.user);
+            toast.success(`Welcome back! Logged in as ${result.user.role}`, {
+              icon: '🎉',
+              duration: 3000,
+            });
           } else {
             // Handle connector not connected error - retry once
-            if (result.error?.includes('Wallet disconnected') || result.error?.includes('Connector not connected')) {
+            if (result.error?.includes('Wallet disconnected') || 
+                result.error?.includes('Connector not connected') ||
+                result.error?.includes('not connected')) {
               console.log('🔄 Connector issue detected, retrying after delay...');
-              await new Promise(resolve => setTimeout(resolve, 1500));
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
               // Retry authentication
               const retryResult = await login(address);
@@ -102,6 +109,7 @@ function ConnectWalletButton() {
                 console.error('❌ Authentication failed after retry:', retryResult.error);
                 setAuthError(retryResult.error);
                 hasAttemptedAuth.current = false;
+                toast.error(retryResult.error || 'Authentication failed');
                 disconnect();
               }
             }
@@ -109,9 +117,20 @@ function ConnectWalletButton() {
             else if (result.isNewUser || result.error?.includes('not found')) {
               console.log('👤 New user detected - showing role selection');
               setRoleModalOpen(true);
-            } else {
+            } 
+            // Handle user cancellation gracefully
+            else if (result.error?.includes('cancelled') || result.error?.includes('rejected')) {
+              console.log('👤 User cancelled authentication');
+              toast.error('Authentication was cancelled', {
+                icon: '⚠️',
+              });
+              hasAttemptedAuth.current = false;
+              disconnect();
+            }
+            else {
               console.error('❌ Authentication failed:', result.error);
               setAuthError(result.error);
+              toast.error(result.error || 'Authentication failed');
               hasAttemptedAuth.current = false;
               disconnect();
             }
@@ -119,6 +138,7 @@ function ConnectWalletButton() {
         } catch (error) {
           console.error('❌ Unexpected authentication error:', error);
           setAuthError(error.message);
+          toast.error(error.message || 'Unexpected error during authentication');
           hasAttemptedAuth.current = false;
           disconnect();
         } finally {
@@ -145,20 +165,29 @@ function ConnectWalletButton() {
     
     if (address) {
       try {
+        toast.loading('Setting up your account...', { id: 'role-setup' });
+        
         const result = await login(address, role);
         
+        toast.dismiss('role-setup');
         console.log('🔍 Login with role result:', result);
         
         if (!result.success) {
           console.error('❌ Role-based login failed:', result.error);
           setAuthError(result.error);
+          toast.error(result.error || 'Failed to set up account');
           disconnect();
         } else {
           console.log('✅ Successfully logged in with role:', role);
+          toast.success(`🎉 Welcome to VeriFund as a ${role}!`, {
+            duration: 4000,
+          });
         }
       } catch (error) {
+        toast.dismiss('role-setup');
         console.error('❌ Role selection error:', error);
         setAuthError(error.message);
+        toast.error(error.message || 'Failed to set up account');
         disconnect();
       }
     }
@@ -190,12 +219,16 @@ function ConnectWalletButton() {
   const handleConnect = async (connector) => {
     try {
       setAuthError(null);
+      toast.loading('Connecting wallet...', { id: 'wallet-connect' });
       await connect({ connector });
+      toast.dismiss('wallet-connect');
       handleCloseWalletModal();
       // Authentication will be triggered by useEffect
     } catch (err) {
+      toast.dismiss('wallet-connect');
       console.error('Wallet connection error:', err);
       setAuthError(err.message || 'Failed to connect wallet');
+      toast.error(err.message || 'Failed to connect wallet');
     }
   };
 
@@ -204,6 +237,9 @@ function ConnectWalletButton() {
     handleClose();
     await logout();
     disconnect();
+    toast.success('Disconnected successfully', {
+      icon: '👋',
+    });
   };
 
   // Copy address to clipboard
@@ -211,6 +247,10 @@ function ConnectWalletButton() {
     if (address) {
       await navigator.clipboard.writeText(address);
       setCopySuccess(true);
+      toast.success('Address copied to clipboard!', {
+        icon: '📋',
+        duration: 2000,
+      });
       setTimeout(() => setCopySuccess(false), 2000);
     }
   };

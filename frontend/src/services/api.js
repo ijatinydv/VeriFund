@@ -175,6 +175,15 @@ export const fetchMyInvestments = async () => {
   return response.data?.investments || [];
 };
 
+/**
+ * Get AI-powered price suggestion for a project
+ * @param {Object} projectData - Project data for price analysis
+ * @returns {Promise} - Promise resolving to price suggestion
+ */
+export const suggestPrice = async (projectData) => {
+  const response = await api.post('/projects/suggest-price', projectData);
+  return response.data || response;
+};
 
 
 export default api;

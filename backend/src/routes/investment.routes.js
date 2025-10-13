@@ -1,26 +1,51 @@
 const express = require('express');
 const router = express.Router();
 const investmentController = require('../controllers/investment.controller');
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, authorize } = require('../middleware/auth.middleware');
 
 /**
  * Investment Routes
- * All routes require authentication
+ * All routes are prefixed with /api/investments
  */
 
-// Create a new investment
+/**
+ * @route   POST /api/investments
+ * @desc    Create a new investment (triggers auto splitter deployment if goal met)
+ * @access  Protected - Investor only
+ */
 router.post('/', authenticate, investmentController.createInvestment);
 
-// Get current user's investments
+/**
+ * @route   GET /api/investments/my
+ * @desc    Get current user's investments
+ * @access  Protected
+ */
 router.get('/my', authenticate, investmentController.getMyInvestments);
 
-// Get investment statistics for current user
-router.get('/stats/summary', authenticate, investmentController.getInvestmentStats);
+/**
+ * @route   GET /api/investments/stats
+ * @desc    Get investment statistics for current user
+ * @access  Protected
+ */
+router.get('/stats', authenticate, investmentController.getInvestmentStats);
 
-// Get all investments for a specific project
+/**
+ * @route   GET /api/investments/project/:projectId
+ * @desc    Get all investments for a specific project
+ * @access  Public
+ */
 router.get('/project/:projectId', investmentController.getProjectInvestments);
 
-// Get a specific investment by ID
-router.get('/:id', authenticate, investmentController.getInvestmentById);
+/**
+ * @route   POST /api/investments/deploy-splitter/:projectId
+ * @desc    Manually deploy splitter contract for a project (Admin/Debug)
+ * @access  Protected - Creator only
+ */
+router.post(
+  '/deploy-splitter/:projectId',
+  authenticate,
+  authorize('Creator'),
+  investmentController.deploySplitter
+);
 
 module.exports = router;

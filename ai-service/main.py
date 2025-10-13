@@ -2,8 +2,9 @@
 main.py
 
 This script creates a production-ready FastAPI service for the VeriFund project.
-It loads the pre-trained XGBoost model and serves predictions through a REST API
-with data validation, transformation, prediction, and explainability features.
+It loads two pre-trained XGBoost models (success scoring and pricing) and serves
+predictions through REST API endpoints with data validation, transformation,
+prediction, and explainability features.
 """
 
 # ============================================================================
@@ -11,7 +12,7 @@ with data validation, transformation, prediction, and explainability features.
 # ============================================================================
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
 import numpy as np
@@ -38,8 +39,8 @@ class CreatorData(BaseModel):
     dispute_rate: float = Field(..., ge=0.0, le=0.15, description="Dispute rate (0.0-0.15)")
     project_category: str = Field(..., description="Project category (e.g., 'UI/UX Design')")
 
-    model_config = ConfigDict(
-        json_schema_extra={
+    class Config:
+        json_schema_extra = {
             "example": {
                 "projects_completed": 25,
                 "tenure_months": 36,
@@ -51,22 +52,29 @@ class CreatorData(BaseModel):
                 "project_category": "Web Development"
             }
         }
-    )
 
 # ============================================================================
-# STEP 3: Load Model and Define Training Columns on Startup
+# STEP 3: Load Models and Define Training Columns on Startup
 # ============================================================================
 
 print("="*80)
 print("VeriFund API - Initializing...")
 print("="*80)
 
-# Load the pre-trained XGBoost model with type hint
+# Load the pre-trained XGBoost success score model
 try:
     model: xgb.XGBRegressor = joblib.load('verifund_model.joblib')
-    print("✓ Model loaded successfully from 'verifund_model.joblib'")
+    print("✓ Success score model loaded successfully from 'verifund_model.joblib'")
 except Exception as e:
-    print(f"✗ Error loading model: {e}")
+    print(f"✗ Error loading success score model: {e}")
+    raise
+
+# Load the pre-trained XGBoost pricing model
+try:
+    price_model: xgb.XGBRegressor = joblib.load('price_model.joblib')
+    print("✓ Pricing model loaded successfully from 'price_model.joblib'")
+except Exception as e:
+    print(f"✗ Error loading pricing model: {e}")
     raise
 
 # Define the exact column names the model was trained on (after one-hot encoding)
@@ -87,10 +95,10 @@ TRAINING_COLUMNS: List[str] = [
 
 print(f"✓ Training columns defined: {len(TRAINING_COLUMNS)} features")
 
-# Initialize SHAP explainer once at startup for efficiency with type hint
+# Initialize SHAP explainer once at startup for efficiency
 try:
     explainer: shap.TreeExplainer = shap.TreeExplainer(model)
-    print("✓ SHAP TreeExplainer initialized")
+    print("✓ SHAP TreeExplainer initialized for success score model")
 except Exception as e:
     print(f"✗ Error initializing SHAP explainer: {e}")
     raise
@@ -104,9 +112,9 @@ print("="*80 + "\n")
 # ============================================================================
 
 app: FastAPI = FastAPI(
-    title="VeriFund Creator Scoring API",
-    description="API for predicting creator project success scores with explainable AI",
-    version="1.0.0",
+    title="VeriFund Creator Scoring & Pricing API",
+    description="API for predicting creator project success scores and suggesting project prices with explainable AI",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -121,26 +129,15 @@ def read_root() -> Dict[str, str | Dict[str, str]]:
     Health check endpoint to verify the API is running.
     """
     return {
-        "service": "VeriFund Creator Scoring API",
+        "service": "VeriFund Creator Scoring & Pricing API",
         "status": "active",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "endpoints": {
-            "score": "/score (POST)",
-            "health": "/health (GET)",
+            "score": "/score (POST) - Get creator success score",
+            "suggest_price": "/suggest-price (POST) - Get pricing recommendation",
             "docs": "/docs",
             "redoc": "/redoc"
         }
-    }
-
-@app.get("/health")
-def health_check() -> Dict[str, str]:
-    """
-    Health check endpoint for monitoring.
-    """
-    return {
-        "status": "healthy",
-        "message": "VeriFund AI API is running",
-        "version": "1.0.0"
     }
 
 # ============================================================================
@@ -162,7 +159,7 @@ def score_creator(creator: CreatorData) -> dict:
         # ----------------------------------------------------------------
         # Step 6a: Convert Pydantic object to DataFrame
         # ----------------------------------------------------------------
-        input_dict: Dict = creator.model_dump()
+        input_dict: Dict = creator.dict()
         df: pd.DataFrame = pd.DataFrame([input_dict])
         
         print(f"\n[Request] Scoring creator with category: {creator.project_category}")
@@ -207,8 +204,7 @@ def score_creator(creator: CreatorData) -> dict:
         feature_impacts: List[Dict] = []
         
         for idx, col in enumerate(TRAINING_COLUMNS):
-            # Convert numpy types to Python native types for JSON serialization
-            feature_value: float = float(df[col].values[0])
+            feature_value: float = df[col].values[0]
             shap_impact: float = float(shap_values[idx])
             
             # Only include features with non-zero values or significant impact
@@ -220,13 +216,13 @@ def score_creator(creator: CreatorData) -> dict:
                         feature_impacts.append({
                             "feature": "project_category",
                             "value": feature_name,
-                            "impact": float(round(shap_impact, 2))
+                            "impact": round(shap_impact, 2)
                         })
                 else:
                     feature_impacts.append({
                         "feature": col,
-                        "value": float(round(feature_value, 2)),
-                        "impact": float(round(shap_impact, 2))
+                        "value": round(feature_value, 2),
+                        "impact": round(shap_impact, 2)
                     })
         
         # Sort by absolute impact (most impactful features first)
@@ -255,7 +251,84 @@ def score_creator(creator: CreatorData) -> dict:
         )
 
 # ============================================================================
-# STEP 7: Add Uvicorn Runner for Local Development
+# STEP 7: Create the /suggest-price POST Endpoint (Pricing Co-Pilot)
+# ============================================================================
+
+@app.post("/suggest-price")
+def suggest_price(creator: CreatorData) -> dict:
+    """
+    Suggest a project price for a creator based on their performance metrics.
+    
+    Args:
+        creator (CreatorData): Creator's performance data
+        
+    Returns:
+        dict: JSON response containing suggested price and price range in INR
+    """
+    try:
+        # ----------------------------------------------------------------
+        # Step 7a: Convert Pydantic object to DataFrame
+        # ----------------------------------------------------------------
+        input_dict: Dict = creator.dict()
+        df: pd.DataFrame = pd.DataFrame([input_dict])
+        
+        print(f"\n[Request] Pricing suggestion for creator with category: {creator.project_category}")
+        
+        # ----------------------------------------------------------------
+        # Step 7b: Apply one-hot encoding (same as training)
+        # ----------------------------------------------------------------
+        # One-hot encode the project_category column
+        df = pd.get_dummies(df, columns=['project_category'], drop_first=False)
+        
+        # ----------------------------------------------------------------
+        # Step 7c: Reindex to match training columns exactly
+        # ----------------------------------------------------------------
+        # This ensures the DataFrame has the exact same columns in the exact
+        # same order as the training data, filling missing categories with 0
+        df = df.reindex(columns=TRAINING_COLUMNS, fill_value=0)
+        
+        print(f"[Processing] Data transformed to {df.shape[1]} features for pricing")
+        
+        # ----------------------------------------------------------------
+        # Step 7d: Make price prediction using the pricing model
+        # ----------------------------------------------------------------
+        price_prediction: np.ndarray = price_model.predict(df)
+        suggested_price: int = int(round(price_prediction[0]))  # Extract and round to integer
+        
+        print(f"[Prediction] Suggested Price: ₹{suggested_price:,}")
+        
+        # ----------------------------------------------------------------
+        # Step 7e: Calculate price range (±12% for realistic variance)
+        # ----------------------------------------------------------------
+        price_variance_percent: float = 0.12  # 12% variance
+        lower_bound: int = int(round(suggested_price * (1 - price_variance_percent)))
+        upper_bound: int = int(round(suggested_price * (1 + price_variance_percent)))
+        
+        # Ensure range stays within realistic bounds (50k to 500k)
+        lower_bound = max(50000, lower_bound)
+        upper_bound = min(500000, upper_bound)
+        
+        print(f"[Price Range] ₹{lower_bound:,} - ₹{upper_bound:,}")
+        
+        # ----------------------------------------------------------------
+        # Step 7f: Return formatted JSON response
+        # ----------------------------------------------------------------
+        response: dict = {
+            "suggested_price": suggested_price,
+            "price_range": [lower_bound, upper_bound]
+        }
+        
+        return response
+        
+    except Exception as e:
+        print(f"[Error] {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing pricing request: {str(e)}"
+        )
+
+# ============================================================================
+# STEP 8: Add Uvicorn Runner for Local Development
 # ============================================================================
 
 if __name__ == "__main__":

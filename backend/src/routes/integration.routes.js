@@ -29,6 +29,15 @@ router.post(
  */
 router.get('/jobs/:jobId/status', integrationController.getJobStatus);
 
+// ============ Webhook Routes ============
+
+/**
+ * @route   POST /api/integrations/webhooks/github
+ * @desc    Handle GitHub webhook for live re-scoring
+ * @access  Public - GitHub webhook endpoint
+ */
+router.post('/webhooks/github', integrationController.handleGithubWebhook);
+
 // ============ Blockchain Routes ============
 
 /**

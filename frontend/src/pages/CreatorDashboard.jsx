@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,7 +18,9 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import ProjectCard from '../components/project/ProjectCard';
+import UpiCashOutModal from '../components/ui/UpiCashOutModal';
 import { fetchMyProjects } from '../services/api';
 import useAuth from '../hooks/useAuth';
 
@@ -29,6 +32,7 @@ import useAuth from '../hooks/useAuth';
 function CreatorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [upiModalOpen, setUpiModalOpen] = useState(false);
 
   // Fetch creator's projects
   const {
@@ -110,16 +114,28 @@ function CreatorDashboard() {
             Welcome back, {user?.name || 'Creator'}! Manage your projects and track performance.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color="secondary"
-          size="large"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/create-project')}
-          sx={{ fontWeight: 600 }}
-        >
-          Create New Project
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="large"
+            startIcon={<QrCodeIcon />}
+            onClick={() => setUpiModalOpen(true)}
+            sx={{ fontWeight: 600 }}
+          >
+            Cash Out to UPI
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/create-project')}
+            sx={{ fontWeight: 600 }}
+          >
+            Create New Project
+          </Button>
+        </Stack>
       </Box>
 
       {/* Stats Cards */}
@@ -328,6 +344,12 @@ function CreatorDashboard() {
           </Box>
         </Card>
       )}
+      
+      {/* UPI Cash Out Modal */}
+      <UpiCashOutModal
+        open={upiModalOpen}
+        onClose={() => setUpiModalOpen(false)}
+      />
     </Container>
   );
 }

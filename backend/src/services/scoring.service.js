@@ -52,16 +52,16 @@ class ScoringService {
       });
 
       // Prepare data for Python API - matching the CreatorData schema
-      // Generate mock/estimated values based on project data
+      // Correct placeholder data structure with creator performance metrics
       const scoringData = {
-        projects_completed: Math.min(Math.floor(Math.random() * 20) + 10, 50), // 10-30 projects
-        tenure_months: Math.min(Math.floor(Math.random() * 30) + 12, 60), // 12-42 months
-        portfolio_strength: Math.min(0.6 + Math.random() * 0.3, 1.0), // 0.6-0.9
-        on_time_delivery_percent: Math.min(0.75 + Math.random() * 0.2, 1.0), // 0.75-0.95
-        avg_client_rating: Math.min(3.8 + Math.random() * 1.0, 5.0), // 3.8-4.8
-        rating_trajectory: Math.min(-0.1 + Math.random() * 0.3, 0.3), // -0.1-0.2
-        dispute_rate: Math.min(Math.random() * 0.1, 0.15), // 0.0-0.1
-        project_category: this._mapCategoryToAIFormat(project.category)
+        "projects_completed": 25,
+        "tenure_months": 36,
+        "portfolio_strength": 0.85,
+        "on_time_delivery_percent": 0.95,
+        "avg_client_rating": 4.7,
+        "rating_trajectory": 0.15,
+        "dispute_rate": 0.03,
+        "project_category": project.category || "Technology"
       };
 
       if (waitForCompletion) {
@@ -359,6 +359,81 @@ class ScoringService {
     };
     
     return categoryMap[category] || 'Web Development';
+  }
+
+  /**
+   * Trigger re-scoring from GitHub webhook
+   * @param {Object} payload - GitHub webhook payload
+   * @returns {Promise<Object>} - Re-scoring job details
+   */
+  async triggerRescoreFromWebhook(payload) {
+    try {
+      console.log('Processing GitHub webhook for re-scoring...');
+      
+      // Extract project ID from various webhook payload sources
+      let projectId = null;
+
+      // Strategy 1: Check commit messages for project ID
+      if (payload.commits && Array.isArray(payload.commits)) {
+        for (const commit of payload.commits) {
+          const message = commit.message || '';
+          // Look for pattern like "projectId:abc123" or "#projectId:abc123"
+          const match = message.match(/(?:#)?projectId:([a-fA-F0-9]{24})/i);
+          if (match) {
+            projectId = match[1];
+            console.log(`Found project ID in commit message: ${projectId}`);
+            break;
+          }
+        }
+      }
+
+      // Strategy 2: Check repository name or description
+      if (!projectId && payload.repository) {
+        const repoName = payload.repository.name || '';
+        const repoDesc = payload.repository.description || '';
+        const combinedText = `${repoName} ${repoDesc}`;
+        const match = combinedText.match(/(?:#)?projectId:([a-fA-F0-9]{24})/i);
+        if (match) {
+          projectId = match[1];
+          console.log(`Found project ID in repository info: ${projectId}`);
+        }
+      }
+
+      // Strategy 3: Check for custom webhook metadata (if sent via webhook config)
+      if (!projectId && payload.project_id) {
+        projectId = payload.project_id;
+        console.log(`Found project ID in webhook metadata: ${projectId}`);
+      }
+
+      if (!projectId) {
+        throw new Error('No project ID found in webhook payload. Include "projectId:YOUR_ID" in commit message or repository description.');
+      }
+
+      // Verify project exists
+      const project = await Project.findById(projectId);
+      if (!project) {
+        throw new Error(`Project not found with ID: ${projectId}`);
+      }
+
+      console.log(`Triggering re-score for project: ${project.title} (${projectId})`);
+
+      // Start scoring job (fire-and-forget mode)
+      const result = await this.startScoringJob(projectId, false);
+
+      return {
+        success: true,
+        message: 'Re-scoring triggered successfully',
+        projectId: projectId,
+        projectTitle: project.title,
+        jobId: result.jobId,
+        webhookEvent: payload.action || payload.ref || 'unknown',
+        repository: payload.repository?.full_name || 'unknown'
+      };
+
+    } catch (error) {
+      console.error('Trigger rescore from webhook error:', error);
+      throw new Error(`Failed to trigger re-scoring: ${error.message}`);
+    }
   }
 
   /**
