@@ -22,18 +22,25 @@ function PotentialScoreDisplay({ score = 0, reasons = [] }) {
   // Framer Motion count-up animation for the score number
   const count = useMotionValue(0);
   const rounded = useTransform(count, (latest) => Math.round(latest));
+  const [previousScore, setPreviousScore] = useState(score);
 
-  // Animate the score number on mount
+  // Animate the score number on mount AND when score changes
   useEffect(() => {
+    const controls = animate(count, score, {
+      duration: hasAnimated ? 1.5 : 2, // Faster animation for updates, slower for initial
+      ease: 'easeOut',
+    });
+    
     if (!hasAnimated) {
-      const controls = animate(count, score, {
-        duration: 2,
-        ease: 'easeOut',
-      });
       setHasAnimated(true);
-      return controls.stop;
     }
-  }, [score, hasAnimated, count]);
+    
+    if (score !== previousScore) {
+      setPreviousScore(score);
+    }
+    
+    return () => controls.stop();
+  }, [score, count, hasAnimated, previousScore]); // Re-run animation whenever score changes
 
   // Prepare data for Recharts RadialBarChart
   const chartData = [

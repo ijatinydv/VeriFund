@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,8 +21,10 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import ProjectCard from '../components/project/ProjectCard';
 import UpiCashOutModal from '../components/ui/UpiCashOutModal';
+import PotentialScoreDisplay from '../components/ui/PotentialScoreDisplay';
 import { fetchMyProjects } from '../services/api';
 import useAuth from '../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 /**
  * CreatorDashboard Component
@@ -33,8 +35,9 @@ function CreatorDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [upiModalOpen, setUpiModalOpen] = useState(false);
+  const [potentialScore, setPotentialScore] = useState(75);
 
-  // Fetch creator's projects
+  // Fetch creator's projects with polling enabled for real-time score updates
   const {
     data: projects,
     isLoading,
@@ -44,7 +47,33 @@ function CreatorDashboard() {
     queryKey: ['myProjects'],
     queryFn: fetchMyProjects,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchInterval: 5000, // Poll every 5 seconds for live score updates
+    refetchIntervalInBackground: false, // Stop polling when tab is not active
   });
+
+  // Update potential score when projects data changes
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      // Get the most recent project's potential score
+      const latestProject = projects[0];
+      const newScore = latestProject?.potentialScore || 75;
+      
+      // Only update if score has changed to trigger animation
+      if (newScore !== potentialScore) {
+        console.log(`Score updated: ${potentialScore} → ${newScore}`);
+        setPotentialScore(newScore);
+        
+        // Show toast notification for score increase
+        if (newScore > potentialScore) {
+          const increase = (newScore - potentialScore).toFixed(1);
+          toast.success(`🎉 Your potential score increased by ${increase} points!`, {
+            duration: 4000,
+            position: 'top-center',
+          });
+        }
+      }
+    }
+  }, [projects, potentialScore]);
 
   // Calculate statistics
   const stats = {
@@ -137,6 +166,13 @@ function CreatorDashboard() {
           </Button>
         </Stack>
       </Box>
+
+      {/* Potential Score Card - Featured */}
+      {projects && projects.length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <PotentialScoreDisplay score={potentialScore} reasons={[]} />
+        </Box>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

@@ -88,6 +88,14 @@ const ProjectSchema = new mongoose.Schema(
       default: null
     },
 
+    potentialScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 75, // Initial default score for creators
+      index: true
+    },
+
     riskLevel: {
       type: String,
       enum: {
