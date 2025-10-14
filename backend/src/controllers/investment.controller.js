@@ -47,6 +47,62 @@ class InvestmentController {
   }
 
   /**
+   * POST /api/investments/:projectId
+   * Alternative endpoint for creating investment with projectId in URL
+   * This enables a simpler frontend integration pattern
+   * @protected - Investor only
+   */
+  async createInvestmentByProjectId(req, res) {
+    try {
+      const { projectId } = req.params;
+      const { amount } = req.body;
+      const investorId = req.user.userId;
+
+      // Validate required fields
+      if (!amount) {
+        return res.status(400).json({
+          success: false,
+          message: 'Investment amount is required'
+        });
+      }
+
+      if (amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Investment amount must be positive'
+        });
+      }
+
+      // Generate a mock transaction hash for INR-based investments
+      // In production, this would come from a payment gateway
+      const transactionHash = '0x' + Date.now().toString(16) + Math.random().toString(16).substring(2, 50);
+
+      // Call investment service
+      const result = await investmentService.createInvestment({
+        projectId,
+        investorId,
+        amount,
+        transactionHash
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Investment successful',
+        investment: result.investment,
+        project: result.project,
+        fundingProgress: result.fundingProgress
+      });
+
+    } catch (error) {
+      console.error('Create investment error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to process investment'
+      });
+    }
+  }
+
+  /**
    * GET /api/investments/my
    * Get current user's investments
    * @protected

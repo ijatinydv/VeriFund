@@ -47,6 +47,7 @@ function ProjectDetailPage() {
     isLoading,
     isError,
     error,
+    refetch: fetchProject,
   } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => fetchProjectById(projectId),
@@ -74,8 +75,8 @@ function ProjectDetailPage() {
   }
 
   // Calculate funding progress
-  const fundingProgress = project?.fundingGoal
-    ? Math.min((project.currentFunding / project.fundingGoal) * 100, 100)
+  const fundingProgress = project?.fundingGoalInr
+    ? Math.min((project.currentFundingInr / project.fundingGoalInr) * 100, 100)
     : 0;
 
   // Format currency
@@ -282,10 +283,10 @@ function ProjectDetailPage() {
             <CardContent sx={{ p: 3 }}>
               {/* Funding Progress */}
               <Typography variant="h4" fontWeight={700} color="secondary.main" gutterBottom>
-                {formatCurrency(project.currentFunding || 0)}
+                {formatCurrency(project.currentFundingInr || 0)}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                pledged of {formatCurrency(project.fundingGoal)} goal
+                pledged of {formatCurrency(project.fundingGoalInr)} goal
               </Typography>
 
               <LinearProgress
@@ -347,7 +348,11 @@ function ProjectDetailPage() {
                   fontSize: '1.1rem',
                 }}
               >
-                {project.status === 'Funding' ? 'Fund This Project' : 'Funding Closed'}
+                {project.status === 'Funding' 
+                  ? 'Invest Now' 
+                  : project.status === 'Live' || project.status === 'Funded'
+                  ? 'Fully Funded'
+                  : `Funding ${project.status}`}
               </Button>
 
               {/* Contract Address */}
@@ -370,6 +375,7 @@ function ProjectDetailPage() {
       <InvestModal
         open={investModalOpen}
         onClose={() => setInvestModalOpen(false)}
+        onSuccess={fetchProject}
         project={project}
       />
     </Container>

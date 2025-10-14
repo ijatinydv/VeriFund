@@ -36,7 +36,12 @@ class InvestmentService {
 
       // Verify project is in Funding status
       if (project.status !== 'Funding') {
-        throw new Error(`Project is not accepting investments. Current status: ${project.status}`);
+        throw new Error(`This project is no longer accepting investments. Current status: ${project.status}`);
+      }
+
+      // Prevent creator from investing in their own project
+      if (project.creator.toString() === investorId.toString()) {
+        throw new Error('Creators cannot invest in their own project');
       }
 
       // Check if funding goal would be exceeded

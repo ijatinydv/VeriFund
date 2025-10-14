@@ -158,6 +158,17 @@ export const recordInvestment = async (investmentData) => {
 };
 
 /**
+ * Invest in a specific project (simplified INR-based flow)
+ * @param {string} projectId - The project ID
+ * @param {number} amount - Investment amount in INR
+ * @returns {Promise} - Promise resolving to investment record
+ */
+export const investInProject = async (projectId, amount) => {
+  const response = await api.post(`/investments/${projectId}`, { amount });
+  return response;
+};
+
+/**
  * Fetch creator's own projects
  * @returns {Promise} - Promise resolving to array of projects
  */

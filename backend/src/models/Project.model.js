@@ -41,7 +41,7 @@ const ProjectSchema = new mongoose.Schema(
         values: ['Pending', 'Funding', 'Live', 'Completed', 'Cancelled'],
         message: 'Status must be one of: Pending, Funding, Live, Completed, Cancelled'
       },
-      default: 'Pending',
+      default: 'Funding',
       index: true
     },
 

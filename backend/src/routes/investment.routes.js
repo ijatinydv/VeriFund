@@ -16,6 +16,13 @@ const { authenticate, authorize } = require('../middleware/auth.middleware');
 router.post('/', authenticate, investmentController.createInvestment);
 
 /**
+ * @route   POST /api/investments/:projectId
+ * @desc    Create a new investment with projectId in URL (simplified INR-based flow)
+ * @access  Protected - Investor only
+ */
+router.post('/:projectId', authenticate, investmentController.createInvestmentByProjectId);
+
+/**
  * @route   GET /api/investments/my
  * @desc    Get current user's investments
  * @access  Protected
