@@ -401,6 +401,81 @@ class ProjectController {
       });
     }
   }
+
+  /**
+   * POST /api/projects/:projectId/simulate-payout
+   * Simulate a revenue payout by sending test ETH to the project's splitter contract
+   * @protected - Admin only (for testing purposes)
+   */
+  async simulatePayout(req, res) {
+    try {
+      const { projectId } = req.params;
+      const { amount } = req.body;
+
+      console.log(`\n💸 Payout simulation request for project ${projectId}`);
+
+      // Validate amount
+      if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid amount (in ETH) is required'
+        });
+      }
+
+      // Find the project
+      const Project = require('../models/Project.model');
+      const project = await Project.findById(projectId);
+
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+      }
+
+      // Check if project has a deployed splitter contract
+      if (!project.splitterContractAddress) {
+        return res.status(400).json({
+          success: false,
+          message: 'Project does not have a deployed splitter contract'
+        });
+      }
+
+      console.log(`📍 Project: ${project.title}`);
+      console.log(`📍 Contract: ${project.splitterContractAddress}`);
+
+      // Simulate the payout using web3 service
+      const web3Service = require('../services/web3.service');
+      const result = await web3Service.simulatePayout(
+        project.splitterContractAddress,
+        amount.toString()
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully sent ${amount} ETH to splitter contract`,
+        data: {
+          ...result,
+          project: {
+            id: project._id,
+            title: project.title,
+            contractAddress: project.splitterContractAddress
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Simulate payout controller error:', error);
+      
+      const statusCode = error.message.includes('not found') ? 404 :
+                        error.message.includes('Insufficient') ? 400 : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Failed to simulate payout'
+      });
+    }
+  }
 }
 
 module.exports = new ProjectController();

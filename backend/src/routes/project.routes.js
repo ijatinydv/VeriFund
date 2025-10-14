@@ -79,6 +79,14 @@ router.get('/:id', projectController.getProjectById);
 router.post('/:id/score', authenticate, projectController.scoreProject);
 
 /**
+ * @route   POST /api/projects/:projectId/simulate-payout
+ * @desc    Simulate a revenue payout to the project's splitter contract
+ * @access  Protected - Admin/Testing only
+ * @body    amount (number) - Amount of ETH to send to the contract
+ */
+router.post('/:projectId/simulate-payout', authenticate, projectController.simulatePayout);
+
+/**
  * @route   PUT /api/projects/:id
  * @desc    Update a project
  * @access  Protected - Creator/Owner only

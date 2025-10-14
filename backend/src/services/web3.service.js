@@ -371,6 +371,217 @@ class Web3Service {
       throw new Error(`Failed to get transaction receipt: ${error.message}`);
     }
   }
+
+  /**
+   * Deploy a VeriFundSplitter contract for a funded project
+   * Executes the Hardhat deployment script with dynamic parameters
+   * @param {Object} project - The project document
+   * @param {Array} investments - Array of investment documents
+   * @returns {Promise<string>} - Deployed contract address
+   */
+  async deploySplitterContract(project, investments) {
+    const { exec } = require('child_process');
+    const path = require('path');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+
+    try {
+      console.log(`\n🚀 Starting smart contract deployment for project: ${project.title}`);
+      console.log(`📊 Total investments: ${investments.length}`);
+      console.log(`💰 Total raised: ₹${project.currentFundingInr}`);
+
+      // Validate inputs
+      if (!project.creator || !project.creator.walletAddress) {
+        throw new Error('Project creator wallet address not found');
+      }
+
+      if (!investments || investments.length === 0) {
+        throw new Error('No investments found for this project');
+      }
+
+      // Prepare constructor arguments
+      const initialOwner = project.creator.walletAddress;
+      
+      // Get unique investors with their wallet addresses
+      const payees = [];
+      const investmentAmounts = [];
+      
+      // Group investments by investor
+      const investorMap = new Map();
+      for (const investment of investments) {
+        if (!investment.investor || !investment.investor.walletAddress) {
+          console.warn(`⚠️  Skipping investment without wallet address`);
+          continue;
+        }
+        
+        const walletAddress = investment.investor.walletAddress.toLowerCase();
+        if (investorMap.has(walletAddress)) {
+          investorMap.set(walletAddress, investorMap.get(walletAddress) + investment.amountInr);
+        } else {
+          investorMap.set(walletAddress, investment.amountInr);
+        }
+      }
+
+      // Convert map to arrays
+      for (const [wallet, amount] of investorMap.entries()) {
+        payees.push(wallet);
+        investmentAmounts.push(amount);
+      }
+
+      if (payees.length === 0) {
+        throw new Error('No valid investor wallet addresses found');
+      }
+
+      console.log(`👥 Unique investors: ${payees.length}`);
+
+      // Calculate shares in basis points (10000 = 100%)
+      const totalInvested = investmentAmounts.reduce((sum, amt) => sum + amt, 0);
+      const shares = investmentAmounts.map(amount => {
+        return Math.round((amount / totalInvested) * 10000);
+      });
+
+      // Ensure shares sum to exactly 10000 by adjusting the largest share if needed
+      const sharesSum = shares.reduce((sum, share) => sum + share, 0);
+      if (sharesSum !== 10000) {
+        const diff = 10000 - sharesSum;
+        const maxIndex = shares.indexOf(Math.max(...shares));
+        shares[maxIndex] += diff;
+      }
+
+      console.log(`📈 Shares (basis points):`, shares);
+      console.log(`✓ Shares sum: ${shares.reduce((s, n) => s + n, 0)} (must be 10000)`);
+
+      // Calculate repayment cap (e.g., 120% of funding goal)
+      // Convert INR to ETH using a reasonable exchange rate
+      // For testnet, we'll use a simplified conversion: 1 ETH = 200,000 INR
+      const INR_TO_ETH_RATE = 200000;
+      const repaymentCapInr = project.fundingGoalInr * 1.2; // 120% return cap
+      const repaymentCapEth = (repaymentCapInr / INR_TO_ETH_RATE).toFixed(4);
+
+      console.log(`🎯 Repayment cap: ₹${repaymentCapInr} (~${repaymentCapEth} ETH)`);
+
+      // Prepare command-line arguments
+      const payeesStr = payees.join(',');
+      const sharesStr = shares.join(',');
+
+      // Construct the Hardhat command
+      const contractsDir = path.resolve(__dirname, '../../../contracts');
+      const command = `cd "${contractsDir}" && npx hardhat run scripts/deploy.js --network sepolia --owner ${initialOwner} --payees ${payeesStr} --shares ${sharesStr} --cap ${repaymentCapEth}`;
+
+      console.log(`\n📝 Executing deployment command...`);
+      console.log(`   Owner: ${initialOwner}`);
+      console.log(`   Payees: ${payees.length}`);
+      console.log(`   Network: Sepolia`);
+
+      // Execute the deployment script
+      const { stdout, stderr } = await execPromise(command, {
+        timeout: 120000, // 2 minute timeout
+        maxBuffer: 1024 * 1024 // 1MB buffer
+      });
+
+      // Log any warnings or errors
+      if (stderr && stderr.trim()) {
+        console.log(`⚠️  Deployment warnings:`, stderr);
+      }
+
+      // Extract contract address from stdout
+      // The deploy script outputs only the contract address
+      const contractAddress = stdout.trim().split('\n').pop();
+
+      // Validate contract address format
+      if (!contractAddress || !ethers.isAddress(contractAddress)) {
+        throw new Error(`Invalid contract address returned: ${contractAddress}`);
+      }
+
+      console.log(`✅ Contract deployed successfully!`);
+      console.log(`📍 Contract address: ${contractAddress}`);
+      console.log(`🔗 View on Etherscan: https://sepolia.etherscan.io/address/${contractAddress}\n`);
+
+      return contractAddress;
+
+    } catch (error) {
+      console.error('❌ Deploy splitter contract error:', error);
+      
+      // Provide more context on specific errors
+      if (error.message.includes('timeout')) {
+        throw new Error('Contract deployment timed out. Please check network status and try again.');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient funds in deployer wallet. Please add ETH to the deployment wallet.');
+      } else {
+        throw new Error(`Failed to deploy splitter contract: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Simulate a payout by sending ETH to a deployed contract
+   * Used for testing the revenue distribution mechanism
+   * @param {string} contractAddress - The splitter contract address
+   * @param {string} amountEth - Amount of ETH to send (as string)
+   * @returns {Promise<Object>} - Transaction details
+   */
+  async simulatePayout(contractAddress, amountEth) {
+    try {
+      console.log(`\n💸 Simulating payout to contract: ${contractAddress}`);
+      console.log(`💰 Amount: ${amountEth} ETH`);
+
+      // Validate contract address
+      if (!ethers.isAddress(contractAddress)) {
+        throw new Error('Invalid contract address');
+      }
+
+      // Validate amount
+      const amount = parseFloat(amountEth);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('Invalid amount. Must be a positive number.');
+      }
+
+      // Check wallet balance
+      const balance = await this.provider.getBalance(this.wallet.address);
+      const balanceEth = parseFloat(ethers.formatEther(balance));
+      
+      console.log(`💳 Wallet balance: ${balanceEth.toFixed(4)} ETH`);
+
+      if (balanceEth < amount) {
+        throw new Error(`Insufficient balance. Have ${balanceEth.toFixed(4)} ETH, need ${amount} ETH`);
+      }
+
+      // Prepare transaction
+      const amountWei = ethers.parseEther(amountEth);
+      
+      const tx = await this.wallet.sendTransaction({
+        to: contractAddress,
+        value: amountWei,
+        // Let ethers estimate gas automatically
+      });
+
+      console.log(`📤 Transaction sent: ${tx.hash}`);
+      console.log(`⏳ Waiting for confirmation...`);
+
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+
+      console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+      console.log(`⛽ Gas used: ${receipt.gasUsed.toString()}`);
+      console.log(`🔗 View on Etherscan: https://sepolia.etherscan.io/tx/${receipt.hash}\n`);
+
+      return {
+        success: true,
+        transactionHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        amountSent: amountEth,
+        contractAddress: contractAddress,
+        from: this.wallet.address,
+        network: this.networkConfig.name,
+        explorerUrl: `https://sepolia.etherscan.io/tx/${receipt.hash}`
+      };
+
+    } catch (error) {
+      console.error('❌ Simulate payout error:', error);
+      throw new Error(`Failed to simulate payout: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new Web3Service();

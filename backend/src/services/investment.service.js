@@ -90,20 +90,28 @@ class InvestmentService {
         
         // Deploy splitter contract automatically
         try {
-          const deploymentResult = await this._deploySplitterForProject(project);
+          // Fetch all investments for this project with investor details
+          const allInvestments = await Investment.find({ project: projectId })
+            .populate('investor', 'walletAddress name');
+          
+          // Populate project creator details
+          await project.populate('creator', 'walletAddress name');
+          
+          // Deploy using new web3 service method
+          const contractAddress = await web3Service.deploySplitterContract(project, allInvestments);
           
           // Update project with splitter address and status
-          project.splitterContractAddress = deploymentResult.contractAddress;
+          project.splitterContractAddress = contractAddress;
           project.status = 'Live';
           await project.save();
 
-          console.log(`✅ Splitter deployed at: ${deploymentResult.contractAddress}`);
+          console.log(`✅ Splitter deployed at: ${contractAddress}`);
 
           return {
             investment: investment,
             project: project,
             splitterDeployed: true,
-            splitterAddress: deploymentResult.contractAddress,
+            splitterAddress: contractAddress,
             message: 'Investment successful! Funding goal reached and splitter contract deployed.'
           };
 
@@ -111,6 +119,10 @@ class InvestmentService {
           console.error('Splitter deployment failed:', deployError);
           
           // Investment is still recorded, but splitter deployment failed
+          // Mark project status as needing manual deployment
+          project.status = 'Funding'; // Keep in funding status for manual intervention
+          await project.save();
+          
           return {
             investment: investment,
             project: project,
@@ -141,71 +153,19 @@ class InvestmentService {
    * @private
    * @param {Object} project - Project document with investments array
    * @returns {Promise<Object>} - Deployment result
+   * @deprecated - Use web3Service.deploySplitterContract directly
    */
   async _deploySplitterForProject(project) {
-    try {
-      // Calculate final payees and shares from investments array
-      const investmentMap = new Map();
-
-      // Aggregate investments by investor (in case same investor invested multiple times)
-      for (const inv of project.investments) {
-        const investorId = inv.investor.toString();
-        const currentAmount = investmentMap.get(investorId) || 0;
-        investmentMap.set(investorId, currentAmount + inv.amount);
-      }
-
-      // Get investor wallet addresses
-      const User = require('../models/User.model');
-      const payees = [];
-      const amounts = [];
-
-      for (const [investorId, amount] of investmentMap.entries()) {
-        const investor = await User.findById(investorId);
-        if (!investor) {
-          throw new Error(`Investor not found: ${investorId}`);
-        }
-
-        payees.push(investor.walletAddress);
-        amounts.push(amount);
-      }
-
-      if (payees.length === 0) {
-        throw new Error('No investors found for splitter deployment');
-      }
-
-      // Calculate shares as percentages (must sum to 100)
-      const totalAmount = amounts.reduce((sum, amt) => sum + amt, 0);
-      const shares = amounts.map(amt => Math.round((amt / totalAmount) * 100));
-
-      // Adjust rounding errors to ensure sum is exactly 100
-      const shareSum = shares.reduce((sum, share) => sum + share, 0);
-      if (shareSum !== 100) {
-        shares[0] += (100 - shareSum); // Adjust first share
-      }
-
-      console.log('Deploying splitter with:');
-      console.log('Payees:', payees);
-      console.log('Shares:', shares);
-
-      // Convert funding cap from INR to Wei (simplified conversion)
-      const ethToInr = 200000; // Example: 1 ETH = 200,000 INR
-      const fundingCapEth = project.fundingGoalInr / ethToInr;
-      const { ethers } = require('ethers');
-      const fundingCapWei = ethers.parseEther(fundingCapEth.toFixed(6).toString());
-
-      // Deploy the splitter contract
-      const result = await web3Service.deploySplitterContract(
-        payees,
-        shares,
-        fundingCapWei.toString()
-      );
-
-      return result;
-
-    } catch (error) {
-      console.error('Deploy splitter for project error:', error);
-      throw new Error(`Failed to deploy splitter: ${error.message}`);
-    }
+    // This method is kept for backward compatibility but is deprecated
+    // New code should use web3Service.deploySplitterContract directly
+    const allInvestments = await Investment.find({ project: project._id })
+      .populate('investor', 'walletAddress name');
+    
+    await project.populate('creator', 'walletAddress name');
+    
+    const contractAddress = await web3Service.deploySplitterContract(project, allInvestments);
+    
+    return { contractAddress };
   }
 
   /**
@@ -279,7 +239,8 @@ class InvestmentService {
    */
   async manuallyDeploySplitter(projectId) {
     try {
-      const project = await Project.findById(projectId);
+      const project = await Project.findById(projectId)
+        .populate('creator', 'walletAddress name');
 
       if (!project) {
         throw new Error('Project not found');
@@ -297,17 +258,22 @@ class InvestmentService {
         throw new Error('No investments found for this project');
       }
 
-      const result = await this._deploySplitterForProject(project);
+      // Fetch all investments with investor details
+      const allInvestments = await Investment.find({ project: projectId })
+        .populate('investor', 'walletAddress name');
+
+      // Deploy using web3 service
+      const contractAddress = await web3Service.deploySplitterContract(project, allInvestments);
 
       // Update project
-      project.splitterContractAddress = result.contractAddress;
+      project.splitterContractAddress = contractAddress;
       project.status = 'Live';
       await project.save();
 
       return {
         success: true,
         message: 'Splitter contract deployed successfully',
-        contractAddress: result.contractAddress,
+        contractAddress: contractAddress,
         project: project
       };
 
