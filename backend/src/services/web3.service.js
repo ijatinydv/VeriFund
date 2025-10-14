@@ -217,109 +217,6 @@ class Web3Service {
   }
 
   /**
-   * Deploy a new Revenue Splitter contract
-   * @param {Array<string>} investors - Array of investor addresses
-   * @param {Array<number>} shares - Array of share percentages (must sum to 100)
-   * @param {number} fundingCap - Maximum funding amount in Wei
-   * @returns {Promise<Object>} - Deployed contract address and details
-   */
-  async deploySplitterContract(investors, shares, fundingCap) {
-    try {
-      // Validate inputs
-      if (!Array.isArray(investors) || !Array.isArray(shares)) {
-        throw new Error('Investors and shares must be arrays');
-      }
-
-      if (investors.length !== shares.length) {
-        throw new Error('Investors and shares arrays must have same length');
-      }
-
-      if (investors.length === 0) {
-        throw new Error('At least one investor required');
-      }
-
-      // Validate addresses
-      for (const address of investors) {
-        if (!ethers.isAddress(address)) {
-          throw new Error(`Invalid investor address: ${address}`);
-        }
-      }
-
-      // Validate shares sum to 100
-      const totalShares = shares.reduce((sum, share) => sum + share, 0);
-      if (totalShares !== 100) {
-        throw new Error(`Shares must sum to 100, got ${totalShares}`);
-      }
-
-      if (!this.abis.splitter) {
-        throw new Error('Splitter ABI not loaded');
-      }
-
-      // Load bytecode
-      const bytecode = this._loadSplitterBytecode();
-
-      console.log('Deploying Revenue Splitter contract...');
-      console.log('Investors:', investors);
-      console.log('Shares:', shares);
-      console.log('Funding Cap:', fundingCap);
-
-      // Create contract factory
-      const factory = new ethers.ContractFactory(
-        this.abis.splitter,
-        bytecode,
-        this.wallet
-      );
-
-      // Deploy contract with constructor arguments
-      const contract = await factory.deploy(investors, shares, fundingCap);
-
-      console.log(`Deployment transaction sent: ${contract.deploymentTransaction().hash}`);
-
-      // Wait for deployment
-      await contract.waitForDeployment();
-
-      const contractAddress = await contract.getAddress();
-
-      console.log(`✅ Splitter contract deployed at: ${contractAddress}`);
-
-      return {
-        success: true,
-        contractAddress: contractAddress,
-        transactionHash: contract.deploymentTransaction().hash,
-        investors: investors,
-        shares: shares,
-        fundingCap: fundingCap,
-        deployer: this.wallet.address,
-        network: this.networkConfig.name
-      };
-
-    } catch (error) {
-      console.error('Deploy splitter contract error:', error);
-      throw new Error(`Failed to deploy splitter contract: ${error.message}`);
-    }
-  }
-
-  /**
-   * Load splitter contract bytecode
-   * @private
-   */
-  _loadSplitterBytecode() {
-    try {
-      const bytecodeDir = path.join(__dirname, '../../contracts/bytecode');
-      const filepath = path.join(bytecodeDir, 'VeriFundSplitter.json');
-      
-      if (fs.existsSync(filepath)) {
-        const content = JSON.parse(fs.readFileSync(filepath, 'utf8'));
-        return content.bytecode || content.data?.bytecode?.object;
-      }
-
-      throw new Error('Splitter bytecode file not found');
-    } catch (error) {
-      throw new Error(`Failed to load bytecode: ${error.message}`);
-    }
-  }
-
-  /**
    * Get wallet balance
    * @returns {Promise<string>} - Balance in ETH
    */
@@ -375,8 +272,13 @@ class Web3Service {
   /**
    * Deploy a VeriFundSplitter contract for a funded project
    * Executes the Hardhat deployment script with dynamic parameters
-   * @param {Object} project - The project document
-   * @param {Array} investments - Array of investment documents
+   * 
+   * This is the PRIMARY deployment method that uses Hardhat for reliability.
+   * It spawns a child process to execute the deploy.js script with the correct
+   * network configuration and constructor arguments.
+   * 
+   * @param {Object} project - The project document (must be populated with creator.walletAddress)
+   * @param {Array} investments - Array of investment documents (must be populated with investor.walletAddress)
    * @returns {Promise<string>} - Deployed contract address
    */
   async deploySplitterContract(project, investments) {
