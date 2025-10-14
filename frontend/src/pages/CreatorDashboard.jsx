@@ -27,6 +27,7 @@ import QrCodeIcon from '@mui/icons-material/QrCode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ProjectCard from '../components/project/ProjectCard';
+import ProjectRevenueCard from '../components/project/ProjectRevenueCard';
 import UpiCashOutModal from '../components/ui/UpiCashOutModal';
 import PotentialScoreDisplay from '../components/ui/PotentialScoreDisplay';
 import { fetchMyProjects, getUpiQrCode } from '../services/api';
@@ -473,6 +474,9 @@ function CreatorDashboard() {
           {projects.map((project) => (
             <Grid item xs={12} sm={6} md={4} key={project._id || project.id}>
               <ProjectCard project={project} />
+              
+              {/* Add On-Chain Revenue Card for projects with deployed contracts */}
+              <ProjectRevenueCard project={project} />
             </Grid>
           ))}
         </Grid>
