@@ -11,14 +11,13 @@ import {
   Alert,
   Skeleton,
   Stack,
-  Chip,
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import InvestmentsIcon from '@mui/icons-material/AccountBalance';
+import InvestmentCard from '../components/project/InvestmentCard';
 import { fetchMyInvestments } from '../services/api';
 import useAuth from '../hooks/useAuth';
 
@@ -45,8 +44,13 @@ function InvestorDashboard() {
 
   // Calculate statistics
   const stats = {
-    totalInvested: investments?.reduce((sum, inv) => sum + (inv.amountInvested || 0), 0) || 0,
-    totalReturns: investments?.reduce((sum, inv) => sum + (inv.revenueEarned || 0), 0) || 0,
+    totalInvested: investments?.reduce((sum, inv) => sum + (inv.amountInr || 0), 0) || 0,
+    totalReturns: investments?.reduce((sum, inv) => {
+      // Calculate potential returns based on investment amount
+      // In a real app, this would come from actual revenue data
+      const potentialReturn = (inv.amountInr || 0) * 0.15; // Example: 15% returns
+      return sum + potentialReturn;
+    }, 0) || 0,
     numberOfInvestments: investments?.length || 0,
   };
 
@@ -60,94 +64,10 @@ function InvestorDashboard() {
     }).format(amount || 0);
   };
 
-  // DataGrid columns definition
-  const columns = [
-    {
-      field: 'projectName',
-      headerName: 'Project Name',
-      width: 200,
-      renderCell: (params) => (
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 600,
-            cursor: 'pointer',
-            '&:hover': { color: 'secondary.main' },
-          }}
-          onClick={() => navigate(`/project/${params.row.projectId || params.row.project?._id || params.row.project?.id}`)}
-        >
-          {params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: 'amountInvested',
-      headerName: 'Amount Invested',
-      width: 160,
-      renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.investmentCurrency === 'ETH'
-            ? `${params.value} ETH`
-            : formatCurrency(params.value)}
-        </Typography>
-      ),
-    },
-    {
-      field: 'revenueShare',
-      headerName: 'Revenue Share',
-      width: 140,
-      renderCell: (params) => (
-        <Chip
-          label={`${params.value}%`}
-          size="small"
-          color="primary"
-          sx={{ fontWeight: 600 }}
-        />
-      ),
-    },
-    {
-      field: 'projectStatus',
-      headerName: 'Status',
-      width: 130,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={
-            params.value === 'Live'
-              ? 'success'
-              : params.value === 'Funding'
-              ? 'warning'
-              : 'default'
-          }
-        />
-      ),
-    },
-    {
-      field: 'revenueEarned',
-      headerName: 'Revenue Earned',
-      width: 160,
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600} color="success.main">
-          {formatCurrency(params.value)}
-        </Typography>
-      ),
-    },
-    {
-      field: 'investmentDate',
-      headerName: 'Investment Date',
-      width: 140,
-      renderCell: (params) => (
-        <Typography variant="body2" color="text.secondary">
-          {new Date(params.value).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Typography>
-      ),
-    },
-  ];
+  // Calculate ROI percentage
+  const roiPercentage = stats.totalInvested > 0 
+    ? ((stats.totalReturns / stats.totalInvested) * 100).toFixed(1)
+    : 0;
 
   // Loading State
   if (isLoading) {
@@ -265,7 +185,7 @@ function InvestorDashboard() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {stats.totalInvested > 0
-                  ? `${((stats.totalReturns / stats.totalInvested) * 100).toFixed(1)}% ROI`
+                  ? `${roiPercentage}% ROI (projected)`
                   : 'No returns yet'}
               </Typography>
             </CardContent>
@@ -310,40 +230,25 @@ function InvestorDashboard() {
         </Grid>
       </Grid>
 
-      {/* Investments Table or Empty State */}
-      {investments && investments.length > 0 ? (
-        <Card elevation={2} sx={{ borderRadius: 3 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h5" fontWeight={600} gutterBottom>
-              Your Portfolio
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Detailed view of all your investments
-            </Typography>
+      {/* Investments Section */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Your Portfolio
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Track all your investments and their performance
+        </Typography>
+      </Box>
 
-            <DataGrid
-              rows={investments}
-              columns={columns}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[5, 10, 25]}
-              disableRowSelectionOnClick
-              autoHeight
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-cell:focus': {
-                  outline: 'none',
-                },
-                '& .MuiDataGrid-row:hover': {
-                  backgroundColor: 'rgba(0, 191, 165, 0.05)',
-                },
-              }}
-            />
-          </CardContent>
-        </Card>
+      {/* Investment Cards or Empty State */}
+      {investments && investments.length > 0 ? (
+        <Grid container spacing={3}>
+          {investments.map((investment) => (
+            <Grid item xs={12} sm={6} md={4} key={investment._id}>
+              <InvestmentCard investment={investment} />
+            </Grid>
+          ))}
+        </Grid>
       ) : (
         // Empty State
         <Card
