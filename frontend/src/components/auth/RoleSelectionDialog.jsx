@@ -9,15 +9,37 @@ import {
   CardActionArea,
   Grid,
   Button,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import { useState } from 'react';
 
 /**
  * Role Selection Dialog
  * Allows new users to choose their role: Creator or Investor
  */
 function RoleSelectionDialog({ open, onSelectRole, onClose }) {
+  // State for consent checkbox
+  const [hasConsented, setHasConsented] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+
+  // Handle role card click - select role but don't submit yet
+  const handleRoleClick = (roleValue) => {
+    setSelectedRole(roleValue);
+  };
+
+  // Handle final registration - only enabled when consent is given
+  const handleCompleteRegistration = () => {
+    if (hasConsented && selectedRole) {
+      onSelectRole(selectedRole);
+      // Reset state for next time
+      setHasConsented(false);
+      setSelectedRole(null);
+    }
+  };
+
   const roles = [
     {
       value: 'Creator',
@@ -77,7 +99,12 @@ function RoleSelectionDialog({ open, onSelectRole, onClose }) {
                 sx={{
                   height: '100%',
                   border: '2px solid',
-                  borderColor: 'divider',
+                  borderColor: selectedRole === role.value 
+                    ? (role.value === 'Creator' ? 'primary.main' : 'secondary.main')
+                    : 'divider',
+                  backgroundColor: selectedRole === role.value 
+                    ? (role.value === 'Creator' ? 'primary.50' : 'secondary.50')
+                    : 'background.paper',
                   transition: 'all 0.3s',
                   '&:hover': {
                     borderColor: role.value === 'Creator' ? 'primary.main' : 'secondary.main',
@@ -87,7 +114,7 @@ function RoleSelectionDialog({ open, onSelectRole, onClose }) {
                 }}
               >
                 <CardActionArea
-                  onClick={() => onSelectRole(role.value)}
+                  onClick={() => handleRoleClick(role.value)}
                   sx={{ height: '100%' }}
                 >
                   <CardContent sx={{ p: 3, textAlign: 'center' }}>
@@ -132,20 +159,62 @@ function RoleSelectionDialog({ open, onSelectRole, onClose }) {
                       ))}
                     </Box>
                     
-                    <Button
-                      variant="contained"
-                      color={role.value === 'Creator' ? 'primary' : 'secondary'}
-                      fullWidth
-                      sx={{ mt: 3, fontWeight: 600 }}
-                    >
-                      Continue as {role.value}
-                    </Button>
+                    {/* Removed the individual button from each card */}
                   </CardContent>
                 </CardActionArea>
               </Card>
             </Grid>
           ))}
         </Grid>
+        
+        {/* Compliance-First: Consent Checkbox */}
+        <Box sx={{ mt: 4, mb: 2, p: 3, backgroundColor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'grey.200' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={hasConsented}
+                onChange={(e) => setHasConsented(e.target.checked)}
+                name="consent"
+                color="primary"
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                I consent to the processing of my data on-chain for compliance purposes as per the{' '}
+                <Typography component="span" variant="body2" color="primary" fontWeight={600}>
+                  VeriFund Privacy Policy
+                </Typography>
+                {' '}and India's{' '}
+                <Typography component="span" variant="body2" color="primary" fontWeight={600}>
+                  Digital Personal Data Protection (DPDP) Act, 2023
+                </Typography>
+                . I understand that my consent will be permanently recorded on the Sepolia blockchain for regulatory compliance and audit purposes.
+              </Typography>
+            }
+          />
+        </Box>
+
+        {/* Complete Registration Button */}
+        <Button
+          onClick={handleCompleteRegistration}
+          disabled={!hasConsented || !selectedRole}
+          variant="contained"
+          color={selectedRole === 'Creator' ? 'primary' : 'secondary'}
+          fullWidth
+          size="large"
+          sx={{ 
+            mt: 2,
+            fontWeight: 600,
+            opacity: (!hasConsented || !selectedRole) ? 0.5 : 1,
+          }}
+        >
+          {!selectedRole 
+            ? 'Select a role above' 
+            : !hasConsented 
+              ? 'Please provide consent to continue'
+              : `Complete Registration as ${selectedRole}`
+          }
+        </Button>
         
         <Typography
           variant="caption"

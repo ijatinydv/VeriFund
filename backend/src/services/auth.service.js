@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { ethers } = require('ethers');
 const User = require('../models/User.model');
+const web3Service = require('./web3.service');
 
 /**
  * Authentication Service
@@ -48,6 +49,17 @@ class AuthService {
           nonceExpiry
         });
         isNewUser = true;
+
+        // --- Record Consent On-Chain (Fire-and-Forget) ---
+        // After creating a new user, record their consent on the blockchain
+        // This runs in the background and doesn't block the nonce response
+        web3Service.recordConsent(normalizedAddress)
+          .then(txHash => {
+            console.log(`✅ Consent recorded on-chain for ${normalizedAddress}, Tx: ${txHash}`);
+          })
+          .catch(err => {
+            console.error(`❌ On-chain consent recording failed for ${normalizedAddress}:`, err.message);
+          });
       } else {
         // Update existing user's nonce
         user.nonce = nonce;
