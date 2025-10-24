@@ -13,15 +13,15 @@ function ProjectCard({ project }) {
   const navigate = useNavigate();
 
   // Calculate funding progress percentage
-  const fundingProgress = project.fundingGoal
-    ? Math.min((project.currentFunding / project.fundingGoal) * 100, 100)
+  const fundingProgress = project.fundingGoalInr
+    ? Math.min((project.currentFundingInr / project.fundingGoalInr) * 100, 100)
     : 0;
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount || 0);
@@ -108,7 +108,7 @@ function ProjectCard({ project }) {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <PersonIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
           <Typography variant="caption" color="text.secondary">
-            by {project.creatorName || 'Anonymous'}
+            by {project?.creator?.name || 'Anonymous'}
           </Typography>
         </Box>
 
@@ -116,10 +116,10 @@ function ProjectCard({ project }) {
         <Box sx={{ mb: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography variant="body2" fontWeight={600}>
-              {formatCurrency(project.currentFunding)}
+              {formatCurrency(project.currentFundingInr)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              of {formatCurrency(project.fundingGoal)}
+              of {formatCurrency(project.fundingGoalInr)}
             </Typography>
           </Box>
           <LinearProgress
@@ -136,7 +136,7 @@ function ProjectCard({ project }) {
             }}
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {Math.round(fundingProgress)}% funded • {project.backers || 0} backers
+            {Math.round(fundingProgress)}% funded • {project.investorCount || 0} backers
           </Typography>
         </Box>
 

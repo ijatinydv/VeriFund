@@ -179,7 +179,7 @@ function ProjectDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
                 <Typography variant="body2" color="text.secondary">
-                  by <strong>{project.creatorName || 'Anonymous'}</strong>
+                  by <strong>{project?.creator?.name || 'Anonymous'}</strong>
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -314,7 +314,7 @@ function ProjectDetailPage() {
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="h5" fontWeight={700}>
-                    {project.backers || 0}
+                    {project.investorCount || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     backers
