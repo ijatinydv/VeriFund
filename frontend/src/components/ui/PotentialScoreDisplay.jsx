@@ -18,11 +18,20 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
  */
 function PotentialScoreDisplay({ score = 0, reasons = [] }) {
   const [hasAnimated, setHasAnimated] = useState(false);
+  const [displayScore, setDisplayScore] = useState(0);
 
   // Framer Motion count-up animation for the score number
   const count = useMotionValue(0);
   const rounded = useTransform(count, (latest) => Math.round(latest));
   const [previousScore, setPreviousScore] = useState(score);
+
+  // Update displayScore whenever the transformed value changes
+  useEffect(() => {
+    const unsubscribe = rounded.on('change', (latest) => {
+      setDisplayScore(latest);
+    });
+    return unsubscribe;
+  }, [rounded]);
 
   // Animate the score number on mount AND when score changes
   useEffect(() => {
@@ -167,7 +176,7 @@ function PotentialScoreDisplay({ score = 0, reasons = [] }) {
                 lineHeight: 1,
               }}
             >
-              {rounded}
+              {displayScore}
             </Typography>
           </motion.div>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

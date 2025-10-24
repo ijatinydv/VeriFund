@@ -21,7 +21,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import ConnectWalletButton from '../web3/ConnectWalletButton';
-import { useAuth } from '../../hooks/useAuth';
+import useAuth from '../../hooks/useAuth';
 
 /**
  * VeriFund Navigation Bar

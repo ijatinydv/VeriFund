@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSendTransaction, useWaitForTransactionReceipt } from 'wagmi'; // Changed useWriteContract to useSendTransaction
+import { useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -16,28 +16,23 @@ import {
   CircularProgress,
   InputAdornment,
   Link,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
-import { recordInvestment, investInProject } from '../../services/api';
+import { recordInvestment } from '../../services/api';
 
 /**
  * InvestModal Component
- * Modal for investing in a project via Web3 (ETH) or INR
+ * Modal for investing in a project via Web3 (ETH only - simplified for hackathon demo)
  * Uses wagmi v2 hooks for blockchain interaction
  * 
  * @param {boolean} open - Modal open state
  * @param {function} onClose - Function to close modal
- * @param {function} onSuccess - Function to call after successful investment
  * @param {Object} project - Project data including splitter contract address
  */
-function InvestModal({ open, onClose, onSuccess, project }) {
+function InvestModal({ open, onClose, project }) {
   const [amount, setAmount] = useState('');
-  const [investmentMode, setInvestmentMode] = useState('INR'); // 'ETH' or 'INR'
   const [error, setError] = useState('');
   const [investmentRecorded, setInvestmentRecorded] = useState(false);
   
@@ -78,30 +73,6 @@ function InvestModal({ open, onClose, onSuccess, project }) {
     },
   });
 
-  // Mutation for INR-based investment (direct API call)
-  const inrInvestmentMutation = useMutation({
-    mutationFn: ({ projectId, amount }) => investInProject(projectId, amount),
-    onSuccess: () => {
-      setInvestmentRecorded(true);
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['project', project.id] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['myInvestments'] });
-      
-      toast.success('🎉 Investment successful!');
-      
-      // Call onSuccess callback to refresh parent component
-      if (onSuccess) {
-        onSuccess();
-      }
-    },
-    onError: (error) => {
-      console.error('Failed to process investment:', error);
-      setError(error.message || 'Failed to process investment');
-      toast.error(error.message || 'Failed to process investment');
-    },
-  });
-
   // Auto-record investment when transaction is confirmed
   useEffect(() => {
     if (isConfirmed && txHash && !investmentRecorded && !recordInvestmentMutation.isPending) {
@@ -127,27 +98,7 @@ function InvestModal({ open, onClose, onSuccess, project }) {
       return;
     }
 
-    // INR investment mode (simplified flow)
-    if (investmentMode === 'INR') {
-      const amountInr = parseFloat(amount);
-      
-      if (amountInr < 1000) {
-        setError('Minimum investment is ₹1,000');
-        toast.error('Minimum investment is ₹1,000');
-        return;
-      }
-
-      toast.loading('Processing investment...', { id: 'invest-inr' });
-      
-      inrInvestmentMutation.mutate({
-        projectId: project.id,
-        amount: amountInr,
-      });
-      
-      return;
-    }
-
-    // ETH investment mode (Web3 flow with useSendTransaction)
+    // ETH investment (Web3 flow with useSendTransaction)
     if (!project.splitterContractAddress) {
       setError('Project contract address not found');
       toast.error('Project contract address not found');
@@ -191,11 +142,10 @@ function InvestModal({ open, onClose, onSuccess, project }) {
 
   // Handle modal close
   const handleClose = () => {
-    if (!isTxPending && !isConfirming && !recordInvestmentMutation.isPending && !inrInvestmentMutation.isPending) {
+    if (!isTxPending && !isConfirming && !recordInvestmentMutation.isPending) {
       setAmount('');
       setError('');
       setInvestmentRecorded(false);
-      setInvestmentMode('INR');
       resetTransaction();
       onClose();
     }
@@ -322,60 +272,31 @@ function InvestModal({ open, onClose, onSuccess, project }) {
         {/* Amount Input */}
         {!isConfirmed && (
           <>
-            {/* Investment Mode Toggle */}
-            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-              <ToggleButtonGroup
-                value={investmentMode}
-                exclusive
-                onChange={(e, newMode) => {
-                  if (newMode !== null) {
-                    setInvestmentMode(newMode);
-                    setAmount('');
-                    setError('');
-                  }
-                }}
-                aria-label="investment mode"
-              >
-                <ToggleButton value="INR" aria-label="INR investment">
-                  <CurrencyRupeeIcon sx={{ mr: 1 }} />
-                  INR (Fiat)
-                </ToggleButton>
-                <ToggleButton value="ETH" aria-label="ETH investment">
-                  <AccountBalanceWalletIcon sx={{ mr: 1 }} />
-                  ETH (Crypto)
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
             <TextField
               fullWidth
               type="number"
-              label="Investment Amount"
+              label="Investment Amount (ETH)"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={investmentMode === 'INR' ? '10000' : '0.1'}
-              disabled={isTxPending || isConfirming || inrInvestmentMutation.isPending}
+              placeholder="0.1"
+              disabled={isTxPending || isConfirming}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    {investmentMode === 'INR' ? '₹' : 'ETH'}
+                    ETH
                   </InputAdornment>
                 ),
               }}
-              helperText={
-                investmentMode === 'INR'
-                  ? 'Minimum investment: ₹1,000'
-                  : 'Enter the amount of ETH you want to invest'
-              }
+              helperText="Enter the amount of ETH you want to invest"
               sx={{ mb: 3 }}
               inputProps={{
-                step: investmentMode === 'INR' ? '1000' : '0.01',
+                step: '0.01',
                 min: '0',
               }}
             />
 
-            {/* Project Contract Info - Only for ETH mode */}
-            {investmentMode === 'ETH' && project?.splitterContractAddress && (
+            {/* Project Contract Info */}
+            {project?.splitterContractAddress && (
               <Box sx={{ p: 2, bgcolor: 'rgba(0, 191, 165, 0.05)', borderRadius: 2, mb: 2 }}>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                   Recipient Contract
@@ -396,9 +317,7 @@ function InvestModal({ open, onClose, onSuccess, project }) {
             {/* Important Notice */}
             <Alert severity="warning" sx={{ borderRadius: 2 }}>
               <Typography variant="caption">
-                {investmentMode === 'ETH'
-                  ? 'This will send ETH from your connected wallet to the project\'s smart contract. Make sure you\'re on the correct network and have sufficient funds for gas fees.'
-                  : 'This will record your INR investment in the platform. In production, this would integrate with a payment gateway for actual fund transfer.'}
+                This will send ETH from your connected wallet to the project's smart contract. Make sure you're on the correct network and have sufficient funds for gas fees.
               </Typography>
             </Alert>
           </>
@@ -408,7 +327,7 @@ function InvestModal({ open, onClose, onSuccess, project }) {
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button 
           onClick={handleClose} 
-          disabled={isTxPending || isConfirming || recordInvestmentMutation.isPending || inrInvestmentMutation.isPending}
+          disabled={isTxPending || isConfirming || recordInvestmentMutation.isPending}
         >
           {isConfirmed && investmentRecorded ? 'Close' : 'Cancel'}
         </Button>
@@ -417,17 +336,10 @@ function InvestModal({ open, onClose, onSuccess, project }) {
             variant="contained"
             color="secondary"
             onClick={handleInvest}
-            disabled={
-              isTxPending || 
-              isConfirming || 
-              !amount || 
-              inrInvestmentMutation.isPending
-            }
+            disabled={isTxPending || isConfirming || !amount}
             startIcon={
-              isTxPending || isConfirming || inrInvestmentMutation.isPending ? (
+              isTxPending || isConfirming ? (
                 <CircularProgress size={20} color="inherit" />
-              ) : investmentMode === 'INR' ? (
-                <CurrencyRupeeIcon />
               ) : (
                 <AccountBalanceWalletIcon />
               )
@@ -437,8 +349,6 @@ function InvestModal({ open, onClose, onSuccess, project }) {
             {isTxPending
               ? 'Confirm in Wallet...'
               : isConfirming
-              ? 'Processing...'
-              : inrInvestmentMutation.isPending
               ? 'Processing...'
               : 'Confirm Investment'}
           </Button>

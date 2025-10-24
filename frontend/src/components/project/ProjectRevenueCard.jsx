@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { Box, Typography, Button, CircularProgress, Card, CardContent, Chip } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Card, CardContent, Chip, Skeleton } from '@mui/material';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
-import splitterAbi from '../../abi/VeriFundSplitter.json';
+import VeriFundSplitterABI from '../../abi/VeriFundSplitter.json';
 import { toast } from 'react-hot-toast';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import useAuth from '../../hooks/useAuth';
 
 /**
  * ProjectRevenueCard Component (wagmi v2 compliant)
@@ -19,20 +20,21 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
  * - Transaction status feedback via toasts
  */
 const ProjectRevenueCard = ({ project }) => {
-  const { address: userAddress, isConnected } = useAccount();
+  const { isConnected } = useAccount();
+  const { user } = useAuth();
 
   // Read pending payment from the contract
   const { 
-    data: pendingPayment, 
+    data: pendingAmountWei, 
     refetch: refetchPendingPayment,
     isLoading: isLoadingBalance 
   } = useReadContract({
     address: project.splitterContractAddress,
-    abi: splitterAbi,
+    abi: VeriFundSplitterABI,
     functionName: 'pendingPayment',
-    args: [userAddress],
+    args: [user?.walletAddress],
     query: {
-      enabled: isConnected && !!project.splitterContractAddress && !!userAddress,
+      enabled: !!user?.walletAddress && !!project.splitterContractAddress,
       refetchInterval: 5000, // Poll every 5 seconds for real-time updates
     },
   });
@@ -54,16 +56,17 @@ const ProjectRevenueCard = ({ project }) => {
   });
 
   // Convert BigInt to ETH for display
-  const withdrawableAmount = pendingPayment ? parseFloat(formatEther(pendingPayment)) : 0;
+  const withdrawableAmountEth = pendingAmountWei ? formatEther(pendingAmountWei) : '0';
 
   // Handle withdrawal button click (wagmi v2 pattern)
   const handleWithdraw = async () => {
-    if (withdrawableAmount <= 0) {
+    const amount = parseFloat(withdrawableAmountEth);
+    if (amount <= 0) {
       toast.error('No funds available to withdraw.');
       return;
     }
 
-    if (!userAddress) {
+    if (!user?.walletAddress) {
       toast.error('Please connect your wallet first.');
       return;
     }
@@ -74,9 +77,9 @@ const ProjectRevenueCard = ({ project }) => {
       // Wagmi v2: directly call writeContract with contract details
       writeContract({
         address: project.splitterContractAddress,
-        abi: splitterAbi,
+        abi: VeriFundSplitterABI,
         functionName: 'release',
-        args: [userAddress],
+        args: [user.walletAddress],
       });
     } catch (err) {
       console.error('Withdrawal error:', err);
@@ -189,9 +192,9 @@ const ProjectRevenueCard = ({ project }) => {
           </Typography>
           {isLoadingBalance ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={20} color="success" />
+              <Skeleton width={100} height={40} />
               <Typography variant="body2" color="text.secondary">
-                Loading balance...
+                Loading...
               </Typography>
             </Box>
           ) : (
@@ -201,7 +204,7 @@ const ProjectRevenueCard = ({ project }) => {
               fontWeight={700}
               sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}
             >
-              {withdrawableAmount.toFixed(6)}
+              {parseFloat(withdrawableAmountEth).toFixed(6)}
               <Typography variant="h6" component="span" color="text.secondary">
                 ETH
               </Typography>
@@ -219,7 +222,7 @@ const ProjectRevenueCard = ({ project }) => {
             !isConnected || 
             isWithdrawing || 
             isConfirming || 
-            withdrawableAmount <= 0 ||
+            parseFloat(withdrawableAmountEth) <= 0 ||
             isLoadingBalance
           }
           startIcon={
@@ -232,12 +235,12 @@ const ProjectRevenueCard = ({ project }) => {
           sx={{
             fontWeight: 600,
             py: 1.5,
-            boxShadow: withdrawableAmount > 0 ? '0 4px 14px 0 rgba(0, 200, 83, 0.39)' : 'none',
+            boxShadow: parseFloat(withdrawableAmountEth) > 0 ? '0 4px 14px 0 rgba(0, 200, 83, 0.39)' : 'none',
           }}
         >
           {isWithdrawing || isConfirming
             ? 'Processing...'
-            : withdrawableAmount <= 0
+            : parseFloat(withdrawableAmountEth) <= 0
             ? 'No Funds Available'
             : 'Withdraw Funds to Wallet'}
         </Button>
