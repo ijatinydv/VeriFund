@@ -38,6 +38,7 @@ function Navbar() {
     { label: 'Browse Projects', path: '/browse' },
     { label: 'Creator Dashboard', path: '/creator/dashboard' },
     { label: 'Investor Dashboard', path: '/investor/dashboard' },
+    { label: 'Profile', path: '/profile' },
   ];
 
   // Mobile drawer

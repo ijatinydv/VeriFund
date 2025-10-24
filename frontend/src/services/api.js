@@ -223,4 +223,33 @@ export const getPayoutSummary = async (projectId) => {
   return response.data || response;
 };
 
+/**
+ * Initiate UPI payout (simulated push payment)
+ * @param {string} projectId - The project ID
+ * @returns {Promise} - Promise resolving to payout receipt
+ */
+export const initiateUpiPayout = async (projectId) => {
+  const response = await api.post(`/payout/${projectId}/initiate`);
+  return response.data || response;
+};
+
+/**
+ * Get user profile
+ * @returns {Promise} - Promise resolving to user profile data
+ */
+export const getUserProfile = async () => {
+  const response = await api.get('/users/profile');
+  return response.data || response;
+};
+
+/**
+ * Update user profile
+ * @param {Object} profileData - Profile data to update (name, upiId)
+ * @returns {Promise} - Promise resolving to updated user data
+ */
+export const updateUserProfile = async (profileData) => {
+  const response = await api.put('/users/profile', profileData);
+  return response.data || response;
+};
+
 export default api;

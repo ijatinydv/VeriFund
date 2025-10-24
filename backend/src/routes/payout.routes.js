@@ -22,4 +22,11 @@ router.get('/upi-qr/:projectId', authenticate, payoutController.generateUpiQrCod
  */
 router.get('/summary/:projectId', authenticate, payoutController.getPayoutSummary);
 
+/**
+ * @route   POST /api/payout/:projectId/initiate
+ * @desc    Initiate UPI payout (simulated push payment)
+ * @access  Private (Creator only)
+ */
+router.post('/:projectId/initiate', authenticate, payoutController.initiateUpiPayout);
+
 module.exports = router;

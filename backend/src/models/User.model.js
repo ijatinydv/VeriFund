@@ -39,6 +39,11 @@ const UserSchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, 'Invalid email format']
     },
 
+    upiId: {
+      type: String,
+      trim: true
+    },
+
     isActive: {
       type: Boolean,
       default: true

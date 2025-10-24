@@ -459,6 +459,56 @@ class Web3Service {
   }
 
   /**
+   * Get pending payout amount for a user from a splitter contract
+   * @param {string} contractAddress - The VeriFundSplitter contract address
+   * @param {string} userWalletAddress - The user's wallet address
+   * @returns {Promise<string>} - Pending payout amount in wei (as string)
+   */
+  async getPendingPayout(contractAddress, userWalletAddress) {
+    try {
+      console.log(`\n💰 Checking pending payout for: ${userWalletAddress}`);
+      console.log(`📍 Contract: ${contractAddress}`);
+
+      // Validate inputs
+      if (!ethers.isAddress(contractAddress)) {
+        throw new Error('Invalid contract address');
+      }
+
+      if (!ethers.isAddress(userWalletAddress)) {
+        throw new Error('Invalid user wallet address');
+      }
+
+      if (!this.abis.splitter) {
+        throw new Error('VeriFundSplitter ABI not loaded');
+      }
+
+      // Create contract instance
+      const splitterContract = new ethers.Contract(
+        contractAddress,
+        this.abis.splitter,
+        this.provider
+      );
+
+      console.log('📞 Calling pendingPayment() on contract...');
+
+      // Call the pendingPayment view function
+      const pendingAmountWei = await splitterContract.pendingPayment(userWalletAddress);
+
+      // Convert BigInt to string to avoid JSON serialization issues
+      const amountStr = pendingAmountWei.toString();
+      const amountEth = ethers.formatEther(pendingAmountWei);
+
+      console.log(`✅ Pending payout: ${amountEth} ETH (${amountStr} wei)`);
+
+      return amountStr;
+
+    } catch (error) {
+      console.error('❌ Get pending payout error:', error);
+      throw new Error(`Failed to get pending payout: ${error.message}`);
+    }
+  }
+
+  /**
    * Simulate a payout by sending ETH to a deployed contract
    * Used for testing the revenue distribution mechanism
    * @param {string} contractAddress - The splitter contract address

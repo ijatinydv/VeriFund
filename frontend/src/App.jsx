@@ -12,6 +12,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import CreatorDashboard from './pages/CreatorDashboard';
 import InvestorDashboard from './pages/InvestorDashboard';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -102,6 +103,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['Investor']}>
                 <InvestorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Protected Profile Route (All authenticated users) */}
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
