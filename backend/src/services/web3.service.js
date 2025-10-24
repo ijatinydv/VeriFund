@@ -459,6 +459,94 @@ class Web3Service {
   }
 
   /**
+   * Deploy a new VeriFundSplitter contract (Simplified version for project creation)
+   * Deploys with empty investor list initially - investors added later on funding
+   * @param {string} creatorAddress - Creator's Ethereum wallet address
+   * @param {string} repaymentCapInWei - Maximum repayment cap in Wei (as string)
+   * @returns {Promise<string>} - Deployed contract address
+   */
+  async deploySplitterContract(creatorAddress, repaymentCapInWei) {
+    try {
+      console.log(`\n🚀 Deploying VeriFundSplitter contract for creator: ${creatorAddress}`);
+      console.log(`💰 Repayment cap: ${ethers.formatEther(repaymentCapInWei)} ETH`);
+
+      // Validate inputs
+      if (!ethers.isAddress(creatorAddress)) {
+        throw new Error('Invalid creator address');
+      }
+
+      if (!this.abis.splitter) {
+        throw new Error('VeriFundSplitter ABI not loaded');
+      }
+
+      // Load bytecode from artifacts
+      const artifactPath = path.join(__dirname, '../../contracts/artifacts/contracts/VeriFundSplitter.sol/VeriFundSplitter.json');
+      if (!fs.existsSync(artifactPath)) {
+        throw new Error('VeriFundSplitter artifact not found. Please compile contracts first.');
+      }
+
+      const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+      const bytecode = artifact.bytecode;
+
+      if (!bytecode || bytecode === '0x') {
+        throw new Error('Invalid bytecode in artifact');
+      }
+
+      // For initial deployment, we deploy with empty investor arrays
+      // Investors will be added when project gets funded
+      const emptyPayees = [];
+      const emptyShares = [];
+
+      console.log(`📝 Constructor arguments:`);
+      console.log(`   Initial Owner: ${creatorAddress}`);
+      console.log(`   Payees: [] (empty - will be set when funded)`);
+      console.log(`   Shares: [] (empty - will be set when funded)`);
+      console.log(`   Repayment Cap: ${repaymentCapInWei} Wei`);
+
+      // Create contract factory
+      const factory = new ethers.ContractFactory(
+        this.abis.splitter,
+        bytecode,
+        this.wallet
+      );
+
+      // Deploy contract
+      console.log('📤 Sending deployment transaction...');
+      const contract = await factory.deploy(
+        creatorAddress,
+        emptyPayees,
+        emptyShares,
+        repaymentCapInWei
+      );
+
+      console.log(`⏳ Waiting for deployment confirmation...`);
+      console.log(`   Transaction hash: ${contract.deploymentTransaction().hash}`);
+
+      // Wait for deployment to be mined
+      await contract.waitForDeployment();
+
+      const deployedAddress = await contract.getAddress();
+
+      console.log(`✅ VeriFundSplitter deployed successfully!`);
+      console.log(`📍 Contract address: ${deployedAddress}`);
+      console.log(`🔗 View on Etherscan: https://sepolia.etherscan.io/address/${deployedAddress}\n`);
+
+      return deployedAddress;
+
+    } catch (error) {
+      console.error('❌ Deploy splitter contract error:', error);
+      
+      if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient ETH in deployer wallet. Please add funds to deploy contracts.');
+      } else if (error.message.includes('nonce')) {
+        throw new Error('Transaction nonce error. Please try again.');
+      } else {
+        throw new Error(`Failed to deploy splitter contract: ${error.message}`);
+      }
+    }
+  }
+
+  /**
    * Get pending payout amount for a user from a splitter contract
    * @param {string} contractAddress - The VeriFundSplitter contract address
    * @param {string} userWalletAddress - The user's wallet address

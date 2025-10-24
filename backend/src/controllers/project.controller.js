@@ -1,5 +1,8 @@
 const projectService = require('../services/project.service');
 const scoringService = require('../services/scoring.service');
+const web3Service = require('../services/web3.service');
+const User = require('../models/User.model');
+const { ethers } = require('ethers');
 
 /**
  * Project Controllers
@@ -21,6 +24,15 @@ class ProjectController {
         return res.status(403).json({
           success: false,
           message: 'Only users with Creator role can create projects'
+        });
+      }
+
+      // Get creator's wallet address for contract deployment
+      const creator = await User.findById(creatorId);
+      if (!creator || !creator.walletAddress) {
+        return res.status(400).json({
+          success: false,
+          message: 'Creator wallet address not found. Please connect your wallet.'
         });
       }
 
@@ -55,11 +67,35 @@ class ProjectController {
         console.warn('⚠️ AI scoring failed, using default potential score:', scoringError.message);
       }
 
-      // Add links and potential score to project data
+      // Deploy VeriFundSplitter contract
+      let splitterContractAddress = null;
+      try {
+        console.log('🚀 Deploying VeriFundSplitter contract...');
+        
+        // Convert funding goal from INR to ETH (using demo rate: 1 ETH = 250,000 INR)
+        const INR_TO_ETH_RATE = 250000;
+        const repaymentCapInr = projectData.fundingGoalInr * 1.2; // 120% return cap
+        const repaymentCapEth = repaymentCapInr / INR_TO_ETH_RATE;
+        const repaymentCapInWei = ethers.parseEther(repaymentCapEth.toString());
+
+        splitterContractAddress = await web3Service.deploySplitterContract(
+          creator.walletAddress,
+          repaymentCapInWei.toString()
+        );
+        
+        console.log('✅ Contract deployed successfully:', splitterContractAddress);
+      } catch (deployError) {
+        console.error('❌ Contract deployment failed:', deployError);
+        // Don't fail project creation, but log the error
+        console.warn('⚠️ Project will be created without splitter contract. Deploy manually later.');
+      }
+
+      // Add links, potential score, and contract address to project data
       const enrichedProjectData = {
         ...projectData,
         links,
-        potentialScore
+        potentialScore,
+        splitterContractAddress
       };
 
       // Create project
@@ -67,7 +103,7 @@ class ProjectController {
 
       return res.status(201).json({
         success: true,
-        message: 'Project created successfully',
+        message: 'Project created successfully' + (splitterContractAddress ? ' with smart contract deployed' : ''),
         data: project
       });
 
