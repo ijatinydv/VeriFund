@@ -62,26 +62,13 @@ function CreateProjectPage() {
       // Optimistically update the cache with the new project
       // This ensures the dashboard stats update immediately
       queryClient.setQueryData(['myProjects'], (oldData) => {
-        if (!oldData) {
-          return {
-            projects: [newProject],
-            pagination: {
-              currentPage: 1,
-              totalPages: 1,
-              totalCount: 1,
-              limit: 10,
-            },
-          };
+        // oldData is an array, not an object with a projects property
+        if (!oldData || !Array.isArray(oldData)) {
+          return [newProject];
         }
 
-        return {
-          ...oldData,
-          projects: [newProject, ...oldData.projects],
-          pagination: {
-            ...oldData.pagination,
-            totalCount: oldData.pagination.totalCount + 1,
-          },
-        };
+        // Add the new project to the beginning of the array
+        return [newProject, ...oldData];
       });
 
       // Also invalidate to ensure fresh data on next visit
