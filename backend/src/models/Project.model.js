@@ -116,6 +116,13 @@ const ProjectSchema = new mongoose.Schema(
     },
 
     // Timeline fields
+    fundingDuration: {
+      type: Number,
+      min: [7, 'Funding duration must be at least 7 days'],
+      max: [90, 'Funding duration cannot exceed 90 days'],
+      default: 30
+    },
+
     fundingDeadline: {
       type: Date,
       validate: {
@@ -222,6 +229,20 @@ ProjectSchema.virtual('fundingProgress').get(function() {
 // Virtual field to check if funding goal is reached
 ProjectSchema.virtual('isFunded').get(function() {
   return this.currentFundingInr >= this.fundingGoalInr;
+});
+
+// Virtual field to calculate days remaining for funding
+ProjectSchema.virtual('daysRemaining').get(function() {
+  if (!this.fundingDuration || !this.createdAt) return 0;
+  
+  const now = new Date();
+  const endDate = new Date(this.createdAt);
+  endDate.setDate(endDate.getDate() + this.fundingDuration);
+  
+  const millisecondsRemaining = endDate - now;
+  const daysRemaining = Math.ceil(millisecondsRemaining / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, daysRemaining); // Never return negative days
 });
 
 /**

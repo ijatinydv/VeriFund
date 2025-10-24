@@ -39,7 +39,7 @@ class ProjectService {
       const project = await Project.create({
         ...projectData,
         creator: creatorId,
-        status: 'Pending', // Start in Pending status
+        status: 'Funding', // Start in Funding status (ready for investments)
         currentFundingInr: 0,
         investorCount: 0,
         imageUrl: projectData.imageUrl || 'https://via.placeholder.com/400x300/0D47A1/FFFFFF?text=Project+Image'

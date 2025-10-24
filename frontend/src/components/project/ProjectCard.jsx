@@ -27,6 +27,49 @@ function ProjectCard({ project }) {
     }).format(amount || 0);
   };
 
+  // Calculate days remaining for funding
+  const calculateDaysRemaining = () => {
+    // Debug logs
+    console.log('🔍 Project Data:', {
+      createdAt: project.createdAt,
+      fundingDuration: project.fundingDuration,
+      daysRemaining: project.daysRemaining
+    });
+
+    // If backend provides daysRemaining virtual field, use it
+    if (project.daysRemaining !== undefined) {
+      console.log('✅ Using backend daysRemaining:', project.daysRemaining);
+      return project.daysRemaining;
+    }
+
+    // Otherwise calculate on frontend
+    if (!project.createdAt || !project.fundingDuration) {
+      console.warn('⚠️ Missing createdAt or fundingDuration');
+      return 0;
+    }
+
+    const now = new Date();
+    const createdDate = new Date(project.createdAt);
+    const endDate = new Date(createdDate);
+    endDate.setDate(endDate.getDate() + project.fundingDuration);
+
+    console.log('📅 Date Calculation:', {
+      now: now.toISOString(),
+      createdDate: createdDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+
+    const millisecondsRemaining = endDate - now;
+    const daysRemaining = Math.ceil(millisecondsRemaining / (1000 * 60 * 60 * 24));
+    
+    const finalDays = Math.max(0, daysRemaining);
+    console.log('⏰ Final daysRemaining:', finalDays);
+    
+    return finalDays;
+  };
+
+  const daysRemaining = calculateDaysRemaining();
+
   // Navigate to project detail page
   const handleViewProject = () => {
     navigate(`/project/${project._id || project.id}`);
@@ -136,7 +179,7 @@ function ProjectCard({ project }) {
             }}
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {Math.round(fundingProgress)}% funded • {project.investorCount || 0} backers
+            {Math.round(fundingProgress)}% funded • {project.investorCount || 0} backers • {daysRemaining} days left
           </Typography>
         </Box>
 

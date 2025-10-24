@@ -98,6 +98,49 @@ function ProjectDetailPage() {
     });
   };
 
+  // Calculate days remaining for funding
+  const calculateDaysRemaining = () => {
+    if (!project) return 0;
+
+    // Debug logs
+    console.log('🔍 Project Data (Detail Page):', {
+      createdAt: project.createdAt,
+      fundingDuration: project.fundingDuration,
+      daysRemaining: project.daysRemaining
+    });
+
+    // If backend provides daysRemaining virtual field, use it
+    if (project.daysRemaining !== undefined) {
+      console.log('✅ Using backend daysRemaining:', project.daysRemaining);
+      return project.daysRemaining;
+    }
+
+    // Otherwise calculate on frontend
+    if (!project.createdAt || !project.fundingDuration) {
+      console.warn('⚠️ Missing createdAt or fundingDuration');
+      return 0;
+    }
+
+    const now = new Date();
+    const createdDate = new Date(project.createdAt);
+    const endDate = new Date(createdDate);
+    endDate.setDate(endDate.getDate() + project.fundingDuration);
+
+    console.log('📅 Date Calculation (Detail Page):', {
+      now: now.toISOString(),
+      createdDate: createdDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+
+    const millisecondsRemaining = endDate - now;
+    const daysRemaining = Math.ceil(millisecondsRemaining / (1000 * 60 * 60 * 24));
+    
+    const finalDays = Math.max(0, daysRemaining);
+    console.log('⏰ Final daysRemaining:', finalDays);
+    
+    return finalDays;
+  };
+
   // Handle invest button click
   const handleInvestClick = () => {
     if (!isAuthenticated) {
@@ -323,7 +366,7 @@ function ProjectDetailPage() {
 
                 <Box>
                   <Typography variant="h5" fontWeight={700}>
-                    {project.fundingDuration || 0}
+                    {calculateDaysRemaining()}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     days remaining
