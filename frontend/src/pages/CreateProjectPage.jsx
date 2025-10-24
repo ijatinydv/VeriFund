@@ -58,21 +58,45 @@ function CreateProjectPage() {
   // TanStack Query mutation for project creation
   const createProjectMutation = useMutation({
     mutationFn: (data) => createProject(data),
-    onSuccess: (data) => {
-      // Invalidate and refetch projects list
+    onSuccess: (newProject) => {
+      // Optimistically update the cache with the new project
+      // This ensures the dashboard stats update immediately
+      queryClient.setQueryData(['myProjects'], (oldData) => {
+        if (!oldData) {
+          return {
+            projects: [newProject],
+            pagination: {
+              currentPage: 1,
+              totalPages: 1,
+              totalCount: 1,
+              limit: 10,
+            },
+          };
+        }
+
+        return {
+          ...oldData,
+          projects: [newProject, ...oldData.projects],
+          pagination: {
+            ...oldData.pagination,
+            totalCount: oldData.pagination.totalCount + 1,
+          },
+        };
+      });
+
+      // Also invalidate to ensure fresh data on next visit
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['myProjects'] });
       
       // Show success toast
       toast.success('🎉 Project created successfully!', {
         duration: 5000,
       });
       
-      console.log('Project created successfully:', data);
+      console.log('Project created successfully:', newProject);
       
       // Navigate to project page after 2 seconds
       setTimeout(() => {
-        navigate(`/project/${data._id || data.id}`);
+        navigate(`/project/${newProject._id || newProject.id}`);
       }, 2000);
     },
     onError: (error) => {
