@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Box, Typography, Button, CircularProgress, Card, CardContent, Chip } from '@mui/material';
-import { useAccount, useReadContract, useSimulateContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import splitterAbi from '../../abi/VeriFundSplitter.json';
 import { toast } from 'react-hot-toast';
@@ -8,7 +8,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 /**
- * ProjectRevenueCard Component
+ * ProjectRevenueCard Component (wagmi v2 compliant)
  * Displays on-chain revenue for a project and allows creators to withdraw funds
  * from the VeriFundSplitter smart contract.
  * 
@@ -33,26 +33,16 @@ const ProjectRevenueCard = ({ project }) => {
     args: [userAddress],
     query: {
       enabled: isConnected && !!project.splitterContractAddress && !!userAddress,
-      refetchInterval: 5000, // Poll every 5 seconds for real-time updates (replaces watch: true)
+      refetchInterval: 5000, // Poll every 5 seconds for real-time updates
     },
   });
 
-  // Simulate the withdrawal transaction
-  const { data: simulateData } = useSimulateContract({
-    address: project.splitterContractAddress,
-    abi: splitterAbi,
-    functionName: 'release',
-    args: [userAddress],
-    query: {
-      enabled: isConnected && !!project.splitterContractAddress && !!userAddress && pendingPayment > 0n,
-    },
-  });
-
-  // Execute the withdrawal
+  // Execute the withdrawal using wagmi v2
   const { 
     writeContract, 
     data: txHash,
-    isPending: isWithdrawing 
+    isPending: isWithdrawing,
+    error: writeError
   } = useWriteContract();
 
   // Wait for transaction confirmation
@@ -66,28 +56,27 @@ const ProjectRevenueCard = ({ project }) => {
   // Convert BigInt to ETH for display
   const withdrawableAmount = pendingPayment ? parseFloat(formatEther(pendingPayment)) : 0;
 
-  // Handle withdrawal button click
+  // Handle withdrawal button click (wagmi v2 pattern)
   const handleWithdraw = async () => {
     if (withdrawableAmount <= 0) {
       toast.error('No funds available to withdraw.');
       return;
     }
 
-    if (!simulateData?.request) {
-      toast.error('Unable to prepare transaction. Please try again.');
+    if (!userAddress) {
+      toast.error('Please connect your wallet first.');
       return;
     }
 
     try {
       toast.loading('Preparing withdrawal transaction...', { id: 'withdraw-tx' });
-      writeContract(simulateData.request, {
-        onSuccess: () => {
-          toast.loading('Transaction submitted! Waiting for confirmation...', { id: 'withdraw-tx' });
-        },
-        onError: (err) => {
-          console.error('Withdrawal error:', err);
-          toast.error(err.shortMessage || 'Transaction failed. Please try again.', { id: 'withdraw-tx' });
-        },
+      
+      // Wagmi v2: directly call writeContract with contract details
+      writeContract({
+        address: project.splitterContractAddress,
+        abi: splitterAbi,
+        functionName: 'release',
+        args: [userAddress],
       });
     } catch (err) {
       console.error('Withdrawal error:', err);
@@ -101,6 +90,13 @@ const ProjectRevenueCard = ({ project }) => {
       toast.loading('Waiting for wallet confirmation...', { id: 'withdraw-tx' });
     }
   }, [isWithdrawing]);
+
+  useEffect(() => {
+    if (writeError) {
+      console.error('Write error:', writeError);
+      toast.error(writeError.shortMessage || 'Transaction failed. Please try again.', { id: 'withdraw-tx' });
+    }
+  }, [writeError]);
 
   useEffect(() => {
     if (txHash && !isConfirmed) {
@@ -224,8 +220,7 @@ const ProjectRevenueCard = ({ project }) => {
             isWithdrawing || 
             isConfirming || 
             withdrawableAmount <= 0 ||
-            isLoadingBalance ||
-            !simulateData?.request
+            isLoadingBalance
           }
           startIcon={
             (isWithdrawing || isConfirming) ? (

@@ -468,6 +468,95 @@ class ScoringService {
   }
 
   /**
+   * Get AI-powered price suggestion for a project
+   * @param {Object} projectData - Project details for price estimation
+   * @param {string} projectData.title - Project title
+   * @param {string} projectData.description - Project description
+   * @param {string} projectData.category - Project category
+   * @param {number} projectData.fundingDuration - Funding duration in days
+   * @returns {Promise<Object>} - Price suggestion with min, max, and suggested values
+   */
+  async getAISuggestedPrice(projectData) {
+    try {
+      console.log('Calling Python API for price suggestion with data:', projectData);
+      
+      // Try to get price from Python API
+      try {
+        const response = await this.axiosInstance.post('/suggest-price', projectData, { timeout: 10000 });
+        const { suggested_price, min_price, max_price, confidence } = response.data;
+        
+        console.log('✅ Python API returned price suggestion:', response.data);
+        return {
+          suggestedPrice: suggested_price,
+          minPrice: min_price,
+          maxPrice: max_price,
+          confidence: confidence || 0.85,
+          source: 'ai'
+        };
+      } catch (apiError) {
+        console.warn('Python API unavailable, using fallback pricing:', apiError.message);
+        
+        // Use fallback calculation
+        const fallbackPricing = this._calculateFallbackPricing(projectData);
+        console.log('✅ Fallback price suggestion:', fallbackPricing);
+        return fallbackPricing;
+      }
+    } catch (error) {
+      console.error('Get AI suggested price error:', error);
+      // Return default pricing if all else fails
+      return this._calculateFallbackPricing(projectData);
+    }
+  }
+
+  /**
+   * Calculate fallback pricing when AI service is unavailable
+   * @private
+   * @param {Object} projectData - Project details
+   * @returns {Object} - Price suggestion
+   */
+  _calculateFallbackPricing(projectData) {
+    const { category, description, fundingDuration } = projectData;
+
+    // Base prices by category (in INR)
+    const categoryBasePrice = {
+      'Technology': 500000,
+      'Finance': 750000,
+      'Healthcare': 600000,
+      'Education': 400000,
+      'E-commerce': 550000,
+      'Social Impact': 350000,
+      'Entertainment': 450000,
+      'Gaming': 500000,
+      'Other': 300000,
+    };
+
+    const basePrice = categoryBasePrice[category] || 300000;
+    
+    // Adjust based on description length (complexity indicator)
+    const descriptionFactor = description ? Math.min(description.length / 500, 2) : 1;
+    
+    // Adjust based on funding duration
+    const durationFactor = fundingDuration ? Math.min(fundingDuration / 30, 2) : 1;
+    
+    const suggestedPrice = Math.round(basePrice * descriptionFactor * durationFactor);
+    const minPrice = Math.round(suggestedPrice * 0.6);
+    const maxPrice = Math.round(suggestedPrice * 1.4);
+
+    return {
+      suggestedPrice,
+      minPrice,
+      maxPrice,
+      confidence: 0.75,
+      source: 'fallback',
+      factors: {
+        categoryBase: basePrice,
+        descriptionComplexity: descriptionFactor,
+        durationMultiplier: durationFactor,
+      }
+    };
+  }
+
+  /**
    * Health check for Python API
    * @returns {Promise<Object>} - API health status
    */

@@ -133,46 +133,17 @@ class ProjectController {
         });
       }
 
-      // Simple AI-powered price suggestion algorithm
-      // In production, this would call the AI service for more sophisticated analysis
-      const categoryBasePrice = {
-        'Technology': 500000,
-        'Finance': 750000,
-        'Healthcare': 600000,
-        'Education': 400000,
-        'E-commerce': 550000,
-        'Social Impact': 350000,
-        'Entertainment': 450000,
-        'Gaming': 500000,
-        'Other': 300000,
-      };
-
-      const basePrice = categoryBasePrice[category] || 300000;
-      
-      // Adjust based on description length (complexity indicator)
-      const descriptionFactor = Math.min(description.length / 500, 2);
-      
-      // Adjust based on funding duration
-      const durationFactor = fundingDuration ? Math.min(fundingDuration / 30, 2) : 1;
-      
-      const suggestedPrice = Math.round(basePrice * descriptionFactor * durationFactor);
-      const minPrice = Math.round(suggestedPrice * 0.6);
-      const maxPrice = Math.round(suggestedPrice * 1.4);
+      // Call AI service for price suggestion
+      const priceSuggestion = await scoringService.getAISuggestedPrice({
+        title,
+        description,
+        category,
+        fundingDuration: fundingDuration || 30
+      });
 
       return res.status(200).json({
         success: true,
-        data: {
-          suggestedPrice,
-          minPrice,
-          maxPrice,
-          category,
-          confidence: 0.85,
-          factors: {
-            categoryBase: basePrice,
-            descriptionComplexity: descriptionFactor,
-            durationMultiplier: durationFactor,
-          }
-        }
+        data: priceSuggestion
       });
 
     } catch (error) {
