@@ -90,10 +90,18 @@ function ConnectWalletButton() {
           
           if (result.success) {
             console.log('✅ Authentication successful!', result.user);
-            toast.success(`Welcome back! Logged in as ${result.user.role}`, {
-              icon: '🎉',
-              duration: 3000,
-            });
+            
+            // Check if this is a new user who needs to select a role
+            if (result.isNewUser) {
+              console.log('👤 New user detected - showing role selection');
+              setRoleModalOpen(true);
+            } else {
+              // Existing user - show welcome message
+              toast.success(`Welcome back! Logged in as ${result.user.role}`, {
+                icon: '🎉',
+                duration: 3000,
+              });
+            }
           } else {
             // Handle connector not connected error - retry once
             if (result.error?.includes('Wallet disconnected') || 
@@ -113,11 +121,6 @@ function ConnectWalletButton() {
                 disconnect();
               }
             }
-            // Check if it's a new user
-            else if (result.isNewUser || result.error?.includes('not found')) {
-              console.log('👤 New user detected - showing role selection');
-              setRoleModalOpen(true);
-            } 
             // Handle user cancellation gracefully
             else if (result.error?.includes('cancelled') || result.error?.includes('rejected')) {
               console.log('👤 User cancelled authentication');

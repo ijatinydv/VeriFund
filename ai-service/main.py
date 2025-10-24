@@ -20,8 +20,6 @@ import shap
 import uvicorn
 import xgboost as xgb
 from typing import List, Dict
-import httpx
-import asyncio
 
 # ============================================================================
 # STEP 2: Define Pydantic Input Schema for Data Validation
@@ -52,32 +50,6 @@ class CreatorData(BaseModel):
                 "rating_trajectory": 0.15,
                 "dispute_rate": 0.03,
                 "project_category": "Web Development"
-            }
-        }
-
-
-class GitHubWebhookPayload(BaseModel):
-    """
-    Pydantic model for validating incoming GitHub webhook payload.
-    Only includes fields we need for score calculation.
-    """
-    ref: str = Field(..., description="Git reference (e.g., 'refs/heads/main')")
-    head_commit: Dict | None = Field(None, description="The most recent commit")
-    repository: Dict = Field(..., description="Repository information")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "ref": "refs/heads/main",
-                "head_commit": {
-                    "message": "feat: add new feature",
-                    "author": {"name": "Developer"},
-                    "timestamp": "2025-10-13T10:00:00Z"
-                },
-                "repository": {
-                    "name": "project-repo",
-                    "full_name": "username/project-repo"
-                }
             }
         }
 
@@ -356,118 +328,7 @@ def suggest_price(creator: CreatorData) -> dict:
         )
 
 # ============================================================================
-# STEP 8: Create the /webhook/github/{project_id} POST Endpoint
-# ============================================================================
-
-@app.post("/webhook/github/{project_id}")
-async def handle_github_webhook(project_id: str, payload: GitHubWebhookPayload) -> dict:
-    """
-    Receives a webhook from GitHub upon a git push, analyzes the commit,
-    simulates a score increase based on commit type, and notifies the backend.
-    
-    This endpoint processes GitHub webhook events and determines if the commit
-    should trigger a potential score increase for the creator.
-    
-    Args:
-        project_id (str): The unique identifier of the project
-        payload (GitHubWebhookPayload): GitHub webhook payload
-        
-    Returns:
-        dict: JSON response containing projectId, scoreIncrease, and message
-    """
-    try:
-        print(f"\n{'='*80}")
-        print(f"[Webhook] Received GitHub webhook for project: {project_id}")
-        print(f"{'='*80}")
-        
-        # Extract commit message from the payload
-        commit_message: str = ""
-        commit_message_raw: str = ""
-        if payload.head_commit:
-            commit_message_raw = payload.head_commit.get('message', '')
-            commit_message = commit_message_raw.lower()
-            print(f"[Webhook] Commit message: '{commit_message_raw}'")
-            print(f"[Webhook] Branch: {payload.ref}")
-        else:
-            print(f"[Webhook] No commit information in payload")
-        
-        # Define keywords that indicate meaningful code contributions
-        meaningful_keywords: List[str] = [
-            'feat', 'feature',      # New features
-            'fix', 'bugfix',        # Bug fixes
-            'chore',                # Maintenance tasks
-            'docs', 'documentation',# Documentation
-            'refactor',             # Code refactoring
-            'perf', 'performance',  # Performance improvements
-            'test',                 # Adding tests
-            'style'                 # Code style improvements
-        ]
-        
-        score_increase: float = 0.0
-        matched_keyword: str = ""
-        
-        # Check if commit message contains any meaningful keywords
-        for keyword in meaningful_keywords:
-            if keyword in commit_message:
-                matched_keyword = keyword
-                # Generate a realistic score increase between 0.5 and 2.5 points
-                score_increase = round(np.random.uniform(0.5, 2.5), 2)
-                break
-        
-        if score_increase > 0:
-            print(f"[Webhook] ✓ Meaningful commit detected (keyword: '{matched_keyword}')")
-            print(f"[Webhook] ✓ Score increase calculated: +{score_increase} points")
-            
-            # Call backend to update the score in database
-            backend_url = "http://localhost:5000/api/integrations/update-score"
-            
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    response = await client.post(
-                        backend_url,
-                        json={
-                            "projectId": project_id,
-                            "scoreIncrease": score_increase,
-                            "commitMessage": commit_message_raw
-                        }
-                    )
-                    
-                    if response.status_code == 200:
-                        print(f"[Webhook] ✓ Backend notified successfully")
-                        backend_data = response.json()
-                        print(f"[Webhook] ✓ Score updated in database: {backend_data}")
-                    else:
-                        print(f"[Webhook] ✗ Backend returned error: {response.status_code}")
-                        print(f"[Webhook] ✗ Response: {response.text}")
-                        
-            except Exception as backend_error:
-                print(f"[Webhook] ✗ Failed to notify backend: {str(backend_error)}")
-                # Continue anyway - webhook processing succeeded even if backend update failed
-                
-        else:
-            print(f"[Webhook] ✗ No meaningful keywords found in commit message")
-            print(f"[Webhook] ✗ No score increase triggered")
-        
-        print(f"{'='*80}\n")
-        
-        # Return response
-        return {
-            "projectId": project_id,
-            "scoreIncrease": score_increase,
-            "commitMessage": commit_message_raw,
-            "message": "Webhook processed successfully"
-        }
-        
-    except Exception as e:
-        print(f"[Webhook Error] {str(e)}")
-        print(f"{'='*80}\n")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing webhook: {str(e)}"
-        )
-
-# ============================================================================
-# STEP 9: Add Uvicorn Runner for Local Development
+# STEP 8: Add Uvicorn Runner for Local Development
 # ============================================================================
 
 if __name__ == "__main__":

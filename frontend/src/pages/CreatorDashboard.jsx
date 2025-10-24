@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -49,11 +49,8 @@ function CreatorDashboard() {
   const [isLoadingUpi, setIsLoadingUpi] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const projectMenuOpen = Boolean(anchorEl);
-  
-  // Use ref to track previous score without causing re-renders
-  const prevScoreRef = useRef(75);
 
-  // Fetch creator's projects with polling enabled for real-time score updates
+  // Fetch creator's projects
   const {
     data: projects,
     isLoading,
@@ -63,8 +60,6 @@ function CreatorDashboard() {
     queryKey: ['myProjects'],
     queryFn: fetchMyProjects,
     staleTime: 1000 * 60 * 2, // 2 minutes
-    refetchInterval: 5000, // Poll every 5 seconds for live score updates
-    refetchIntervalInBackground: false, // Stop polling when tab is not active
   });
 
   // Update potential score when projects data changes
@@ -73,36 +68,12 @@ function CreatorDashboard() {
       // Get the most recent project's potential score
       const latestProject = projects[0];
       const newScore = latestProject?.potentialScore || 75;
-      
-      // Use ref to compare with previous score
-      const oldScore = prevScoreRef.current;
-      
-      // Only update if score has changed to trigger animation
-      if (newScore !== oldScore) {
-        console.log(`🔄 Score updated: ${oldScore} → ${newScore}`);
-        
-        // Show toast notification for score increase
-        if (newScore > oldScore) {
-          const increase = (newScore - oldScore).toFixed(1);
-          toast.success(`🎉 Your potential score increased by ${increase} points!`, {
-            duration: 4000,
-            position: 'top-center',
-            icon: '📈',
-          });
-        }
-        
-        // Update score state to trigger animation
-        setPotentialScore(newScore);
-        
-        // Update ref to new score
-        prevScoreRef.current = newScore;
-      }
+      setPotentialScore(newScore);
     } else if (projects && projects.length === 0) {
       // Reset to default if no projects
       setPotentialScore(75);
-      prevScoreRef.current = 75;
     }
-  }, [projects]); // Only depend on projects to avoid infinite loop
+  }, [projects]);
 
   // Handler for opening project selection menu
   const handleOpenProjectMenu = (event) => {
@@ -217,30 +188,9 @@ function CreatorDashboard() {
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <Typography variant="h3" fontWeight={700}>
-              Creator Dashboard
-            </Typography>
-            {/* Live Update Indicator */}
-            {projects && projects.length > 0 && (
-              <Chip
-                icon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
-                label="Live Updates Active"
-                size="small"
-                color="success"
-                sx={{
-                  height: 24,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  animation: 'pulse 2s ease-in-out infinite',
-                  '@keyframes pulse': {
-                    '0%, 100%': { opacity: 1 },
-                    '50%': { opacity: 0.7 },
-                  },
-                }}
-              />
-            )}
-          </Box>
+          <Typography variant="h3" fontWeight={700} sx={{ mb: 1 }}>
+            Creator Dashboard
+          </Typography>
           <Typography variant="body1" color="text.secondary">
             Welcome back, {user?.name || 'Creator'}! Manage your projects and track performance.
           </Typography>

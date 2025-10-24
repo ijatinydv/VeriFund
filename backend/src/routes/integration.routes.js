@@ -38,13 +38,6 @@ router.get('/jobs/:jobId/status', integrationController.getJobStatus);
  */
 router.post('/webhooks/github', integrationController.handleGithubWebhook);
 
-/**
- * @route   POST /api/integrations/update-score
- * @desc    Update project potential score (called by AI service)
- * @access  Public - AI service endpoint
- */
-router.post('/update-score', integrationController.handleScoreUpdate);
-
 // ============ Blockchain Routes ============
 
 /**

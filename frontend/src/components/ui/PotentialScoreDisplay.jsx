@@ -17,13 +17,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
  *   { feature: string, impact: 'positive' | 'negative', value: string }
  */
 function PotentialScoreDisplay({ score = 0, reasons = [] }) {
-  const [hasAnimated, setHasAnimated] = useState(false);
   const [displayScore, setDisplayScore] = useState(0);
 
   // Framer Motion count-up animation for the score number
   const count = useMotionValue(0);
   const rounded = useTransform(count, (latest) => Math.round(latest));
-  const [previousScore, setPreviousScore] = useState(score);
 
   // Update displayScore whenever the transformed value changes
   useEffect(() => {
@@ -33,23 +31,15 @@ function PotentialScoreDisplay({ score = 0, reasons = [] }) {
     return unsubscribe;
   }, [rounded]);
 
-  // Animate the score number on mount AND when score changes
+  // Animate the score number on mount only
   useEffect(() => {
     const controls = animate(count, score, {
-      duration: hasAnimated ? 1.5 : 2, // Faster animation for updates, slower for initial
+      duration: 2,
       ease: 'easeOut',
     });
     
-    if (!hasAnimated) {
-      setHasAnimated(true);
-    }
-    
-    if (score !== previousScore) {
-      setPreviousScore(score);
-    }
-    
     return () => controls.stop();
-  }, [score, count, hasAnimated, previousScore]); // Re-run animation whenever score changes
+  }, [score, count]);
 
   // Prepare data for Recharts RadialBarChart
   const chartData = [
@@ -165,20 +155,18 @@ function PotentialScoreDisplay({ score = 0, reasons = [] }) {
             textAlign: 'center',
           }}
         >
-          <motion.div>
-            <Typography
-              variant="h2"
-              component="div"
-              fontWeight={800}
-              sx={{
-                color: scoreColor,
-                fontSize: '3.5rem',
-                lineHeight: 1,
-              }}
-            >
-              {displayScore}
-            </Typography>
-          </motion.div>
+          <Typography
+            variant="h2"
+            component="div"
+            fontWeight={800}
+            sx={{
+              color: scoreColor,
+              fontSize: '3.5rem',
+              lineHeight: 1,
+            }}
+          >
+            {displayScore}
+          </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             out of 100
           </Typography>
