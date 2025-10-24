@@ -106,43 +106,40 @@ class Web3Service {
    */
   async recordConsent(userWalletAddress) {
     try {
-      if (!this.consentRegistryContract) {
-        throw new Error('Consent Registry contract not initialized');
-      }
-
-      // Validate wallet address
-      if (!ethers.isAddress(userWalletAddress)) {
-        throw new Error('Invalid user wallet address');
-      }
-
-      console.log(`📝 Recording consent on-chain for user: ${userWalletAddress}`);
-
-      // Define consent parameters
-      const consentType = ethers.id('REGISTRATION_DPDP_V1'); // Keccak256 hash of consent type
-      const documentHash = ethers.id('VeriFund Privacy Policy - DPDP Act 2023'); // Hash of privacy policy
-
-      // Call the smart contract's logConsent function
-      const tx = await this.consentRegistryContract.logConsent(
-        userWalletAddress,
-        consentType,
-        documentHash
-      );
-
-      console.log(`✅ Consent transaction sent: ${tx.hash}`);
-      console.log(`⏳ Waiting for blockchain confirmation...`);
-
-      // Wait for transaction to be mined
-      const receipt = await tx.wait();
-
-      console.log(`✅ Consent recorded on-chain in block ${receipt.blockNumber}`);
-      console.log(`🔗 View on Etherscan: https://sepolia.etherscan.io/tx/${receipt.hash}`);
-
-      return receipt.hash;
-
-    } catch (error) {
-      console.error('❌ Record consent error:', error);
-      throw new Error(`Failed to record consent on-chain: ${error.message}`);
+    if (!this.consentRegistryContract) {
+      throw new Error('Consent Registry contract not initialized');
     }
+
+    if (!ethers.isAddress(userWalletAddress)) {
+      throw new Error('Invalid user wallet address');
+    }
+
+    console.log(`📝 Recording consent on-chain for user: ${userWalletAddress}`);
+
+    const consentType = ethers.id('REGISTRATION_DPDP_V1');
+    const documentHash = ethers.id('VeriFund Privacy Policy - DPDP Act 2023');
+
+    // Call the smart contract's logConsent function
+    const tx = await this.consentRegistryContract.logConsent(
+      userWalletAddress,
+      consentType,
+      documentHash
+    );
+
+    console.log(`✅ Consent transaction sent: ${tx.hash}`);
+    console.log(`🔗 View on Etherscan: https://sepolia.etherscan.io/tx/${tx.hash}`);
+
+    // --- THIS IS THE FIX ---
+    // DO NOT wait for the transaction to be mined.
+    // Return the transaction hash immediately. The user's login can proceed
+    // while the transaction confirms in the background.
+    return tx.hash;
+    // ----------------------
+
+  } catch (error) {
+    console.error('❌ Record consent error:', error);
+    throw new Error(`Failed to record consent on-chain: ${error.message}`);
+  }
   }
 
   /**

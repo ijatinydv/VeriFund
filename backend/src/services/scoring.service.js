@@ -437,6 +437,37 @@ class ScoringService {
   }
 
   /**
+   * Get AI Potential Score for project creation (no project ID needed)
+   * @param {Object} aiData - Creator performance data
+   * @returns {Promise<number>} - Potential score (0-100)
+   */
+  async getAIPotentialScore(aiData) {
+    try {
+      console.log('Calling Python API for potential score with data:', aiData);
+      
+      // Try to get score from Python API
+      try {
+        const response = await this.axiosInstance.post('/score', aiData, { timeout: 10000 });
+        const { projectSuccessScore } = response.data;
+        
+        console.log('✅ Python API returned potential score:', projectSuccessScore);
+        return Math.round(projectSuccessScore);
+      } catch (apiError) {
+        console.warn('Python API unavailable, using fallback scoring:', apiError.message);
+        
+        // Use fallback calculation
+        const fallbackResult = this._calculateFallbackScore(aiData);
+        console.log('✅ Fallback potential score:', fallbackResult.trustScore);
+        return fallbackResult.trustScore;
+      }
+    } catch (error) {
+      console.error('Get AI potential score error:', error);
+      // Return default score if all else fails
+      return 75;
+    }
+  }
+
+  /**
    * Health check for Python API
    * @returns {Promise<Object>} - API health status
    */

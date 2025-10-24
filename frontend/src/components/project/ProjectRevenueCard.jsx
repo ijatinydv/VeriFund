@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Box, Typography, Button, CircularProgress, Card, CardContent, Chip } from '@mui/material';
-import { useAccount, useContractRead, useContractWrite, usePrepareContractWrite, useWaitForTransaction } from 'wagmi';
+import { useAccount, useReadContract, useSimulateContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import splitterAbi from '../../abi/VeriFundSplitter.json';
 import { toast } from 'react-hot-toast';
@@ -26,37 +26,41 @@ const ProjectRevenueCard = ({ project }) => {
     data: pendingPayment, 
     refetch: refetchPendingPayment,
     isLoading: isLoadingBalance 
-  } = useContractRead({
+  } = useReadContract({
     address: project.splitterContractAddress,
     abi: splitterAbi,
     functionName: 'pendingPayment',
     args: [userAddress],
-    enabled: isConnected && !!project.splitterContractAddress && !!userAddress,
-    watch: true, // Enable polling for real-time updates
+    query: {
+      enabled: isConnected && !!project.splitterContractAddress && !!userAddress,
+      refetchInterval: 5000, // Poll every 5 seconds for real-time updates (replaces watch: true)
+    },
   });
 
-  // Prepare the withdrawal transaction
-  const { config } = usePrepareContractWrite({
+  // Simulate the withdrawal transaction
+  const { data: simulateData } = useSimulateContract({
     address: project.splitterContractAddress,
     abi: splitterAbi,
     functionName: 'release',
     args: [userAddress],
-    enabled: isConnected && !!project.splitterContractAddress && !!userAddress && pendingPayment > 0n,
+    query: {
+      enabled: isConnected && !!project.splitterContractAddress && !!userAddress && pendingPayment > 0n,
+    },
   });
 
   // Execute the withdrawal
   const { 
-    data: withdrawData, 
-    write: withdraw, 
-    isLoading: isWithdrawing 
-  } = useContractWrite(config);
+    writeContract, 
+    data: txHash,
+    isPending: isWithdrawing 
+  } = useWriteContract();
 
   // Wait for transaction confirmation
   const { 
     isLoading: isConfirming, 
     isSuccess: isConfirmed 
-  } = useWaitForTransaction({
-    hash: withdrawData?.hash,
+  } = useWaitForTransactionReceipt({
+    hash: txHash,
   });
 
   // Convert BigInt to ETH for display
@@ -69,14 +73,22 @@ const ProjectRevenueCard = ({ project }) => {
       return;
     }
 
-    if (!withdraw) {
+    if (!simulateData?.request) {
       toast.error('Unable to prepare transaction. Please try again.');
       return;
     }
 
     try {
       toast.loading('Preparing withdrawal transaction...', { id: 'withdraw-tx' });
-      withdraw();
+      writeContract(simulateData.request, {
+        onSuccess: () => {
+          toast.loading('Transaction submitted! Waiting for confirmation...', { id: 'withdraw-tx' });
+        },
+        onError: (err) => {
+          console.error('Withdrawal error:', err);
+          toast.error(err.shortMessage || 'Transaction failed. Please try again.', { id: 'withdraw-tx' });
+        },
+      });
     } catch (err) {
       console.error('Withdrawal error:', err);
       toast.error(err.shortMessage || 'Transaction failed. Please try again.', { id: 'withdraw-tx' });
@@ -91,10 +103,10 @@ const ProjectRevenueCard = ({ project }) => {
   }, [isWithdrawing]);
 
   useEffect(() => {
-    if (withdrawData?.hash && !isConfirmed) {
+    if (txHash && !isConfirmed) {
       toast.loading('Transaction submitted! Waiting for confirmation...', { id: 'withdraw-tx' });
     }
-  }, [withdrawData, isConfirmed]);
+  }, [txHash, isConfirmed]);
 
   useEffect(() => {
     if (isConfirmed) {
@@ -213,7 +225,7 @@ const ProjectRevenueCard = ({ project }) => {
             isConfirming || 
             withdrawableAmount <= 0 ||
             isLoadingBalance ||
-            !withdraw
+            !simulateData?.request
           }
           startIcon={
             (isWithdrawing || isConfirming) ? (

@@ -80,8 +80,8 @@ module.exports = {
     // Sepolia Testnet (recommended for testing)
     // ------------------------------------------------------------
     sepolia: {
-      url: SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
-      accounts: [sepoliaPrivateKey],
+      url: process.env.SEPOLIA_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
       // Gas configuration for Sepolia
       gas: "auto",

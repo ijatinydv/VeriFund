@@ -41,6 +41,7 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
     fundingGoalInr: data.fundingGoalInr || '',
     fundingDuration: data.fundingDuration || 30,
     revenueSharePercent: data.revenueSharePercent || '',
+    imageUrl: data.imageUrl || '',
   });
 
   const [errors, setErrors] = useState({});
@@ -225,6 +226,17 @@ function Step1_ProjectDetails({ data, onUpdate, onNext }) {
           }
           placeholder="Describe your project's mission, target audience, and unique value proposition..."
           inputProps={{ maxLength: 500 }}
+        />
+
+        {/* Project Banner URL */}
+        <TextField
+          fullWidth
+          label="Project Banner URL"
+          name="imageUrl"
+          value={formData.imageUrl}
+          onChange={handleChange}
+          helperText="Enter a URL to an image for your project banner (recommended: 1200x600px)"
+          placeholder="https://example.com/images/project-banner.jpg"
         />
 
         {/* Category */}

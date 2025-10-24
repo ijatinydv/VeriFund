@@ -39,6 +39,7 @@ function CreateProjectPage() {
     fundingGoalInr: '',
     fundingDuration: 30,
     revenueSharePercent: '',
+    imageUrl: '',
     
     // Step 2: Profile Links
     githubUrl: '',
@@ -48,7 +49,6 @@ function CreateProjectPage() {
     dribbbleUrl: '',
     
     // Additional fields
-    imageUrl: '',
     tags: [],
   });
 

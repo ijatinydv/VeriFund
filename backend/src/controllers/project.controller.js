@@ -33,10 +33,33 @@ class ProjectController {
         dribbble: projectData.dribbbleUrl || ''
       };
 
-      // Add links to project data
+      // Prepare AI data for potential score calculation (hackathon placeholder)
+      const aiData = {
+        projects_completed: 15,
+        tenure_months: 24,
+        portfolio_strength: 0.75,
+        on_time_delivery_percent: 0.88,
+        avg_client_rating: 4.5,
+        rating_trajectory: 0.10,
+        dispute_rate: 0.05,
+        project_category: projectData.category || 'Technology'
+      };
+
+      // Calculate AI Potential Score before creating project
+      let potentialScore = 75; // Default score
+      try {
+        console.log('🤖 Calculating AI Potential Score...');
+        potentialScore = await scoringService.getAIPotentialScore(aiData);
+        console.log('✅ AI Potential Score calculated:', potentialScore);
+      } catch (scoringError) {
+        console.warn('⚠️ AI scoring failed, using default potential score:', scoringError.message);
+      }
+
+      // Add links and potential score to project data
       const enrichedProjectData = {
         ...projectData,
-        links
+        links,
+        potentialScore
       };
 
       // Create project
