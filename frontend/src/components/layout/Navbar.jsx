@@ -14,32 +14,58 @@ import {
   ListItemText,
   useMediaQuery,
   useTheme,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import ConnectWalletButton from '../web3/ConnectWalletButton';
+import { useAuth } from '../../hooks/useAuth';
 
 /**
  * VeriFund Navigation Bar
- * Features: Logo, navigation links, wallet connect button, and responsive mobile menu
+ * Features: Logo, navigation links, wallet connect button, role-based navigation, and responsive mobile menu
  */
 function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { user, isAuthenticated } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const navItems = [
+  const handleUserMenuOpen = (event) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
+  };
+
+  // Base nav items (public)
+  const baseNavItems = [
     { label: 'Home', path: '/' },
     { label: 'Browse Projects', path: '/browse' },
-    { label: 'Creator Dashboard', path: '/creator/dashboard' },
-    { label: 'Investor Dashboard', path: '/investor/dashboard' },
-    { label: 'Profile', path: '/profile' },
   ];
+
+  // Role-based dashboard items
+  const getDashboardItems = () => {
+    if (!isAuthenticated || !user) return [];
+    
+    if (user.role === 'Creator') {
+      return [{ label: 'Creator Dashboard', path: '/creator/dashboard' }];
+    } else if (user.role === 'Investor') {
+      return [{ label: 'My Investments', path: '/investor/dashboard' }];
+    }
+    return [];
+  };
+
+  const navItems = [...baseNavItems, ...getDashboardItems()];
 
   // Mobile drawer
   const drawer = (
@@ -65,6 +91,23 @@ function Navbar() {
             </ListItemButton>
           </ListItem>
         ))}
+        {isAuthenticated && (
+          <ListItem disablePadding>
+            <ListItemButton
+              component={RouterLink}
+              to="/profile"
+              selected={location.pathname === '/profile'}
+              sx={{
+                textAlign: 'center',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(0, 191, 165, 0.1)',
+                },
+              }}
+            >
+              <ListItemText primary="Profile" />
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
     </Box>
   );
@@ -136,6 +179,42 @@ function Navbar() {
 
             {/* Spacer for mobile */}
             <Box sx={{ flexGrow: 1, display: { md: 'none' } }} />
+
+            {/* User Menu (Desktop) */}
+            {isAuthenticated && !isMobile && (
+              <IconButton
+                onClick={handleUserMenuOpen}
+                sx={{
+                  mr: 1,
+                  color: 'text.primary',
+                  '&:hover': {
+                    color: 'secondary.main',
+                  },
+                }}
+              >
+                <AccountCircleIcon />
+              </IconButton>
+            )}
+            <Menu
+              anchorEl={userMenuAnchor}
+              open={Boolean(userMenuAnchor)}
+              onClose={handleUserMenuClose}
+              PaperProps={{
+                sx: {
+                  backgroundColor: 'background.paper',
+                  borderRadius: 2,
+                  mt: 1,
+                },
+              }}
+            >
+              <MenuItem
+                component={RouterLink}
+                to="/profile"
+                onClick={handleUserMenuClose}
+              >
+                Profile
+              </MenuItem>
+            </Menu>
 
             {/* Connect Wallet Button */}
             <ConnectWalletButton />
